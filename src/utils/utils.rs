@@ -1,8 +1,10 @@
 extern crate serialize;
 extern crate collections;
 
+use std::char;
 use std::str;
 use std::fmt;
+use std::vec;
 // have to use "self", otherwise it's an "unresolved import"
 use self::collections::vec::Vec;
 use self::serialize::base64::{ToBase64, STANDARD};
@@ -20,8 +22,17 @@ impl fmt::Show for CryptoData {
 }
 
 impl CryptoData {
+	pub fn new() -> CryptoData {
+		CryptoData { data: Vec::new() }
+	}
+
 	pub fn from_hex(hexstring: &str) -> CryptoData {
 		CryptoData { data: hexstring.from_hex().unwrap() }
+	}
+
+	pub fn from_text(ascii: &str) -> CryptoData {
+		let bytes = vec::as_vec(ascii.as_bytes());
+		CryptoData { data: bytes.deref().clone() }
 	}
 
 	pub fn to_base64(&self) -> String {
@@ -45,7 +56,7 @@ impl CryptoData {
 		&self.data
 	}
 
-	pub fn xor(&self, key: CryptoData) -> CryptoData {
+	pub fn xor(&self, key: &CryptoData) -> CryptoData {
 		let mut res: Vec<u8> = Vec::new();
 		let mut data_it = self.data.iter();
 
@@ -63,5 +74,35 @@ impl CryptoData {
 		}
 
 		CryptoData { data: res, }
+	}
+
+	pub fn pkcs7_pad(&self, bsize: uint) -> CryptoData {
+		let mut res = self.data.clone();
+		let pad_size = bsize - res.len() % bsize;
+		//println!("len: {}, pad: {}", res.len(), pad_size);
+		let pad_byte = char::from_u32(pad_size as u32).unwrap();
+		for _ in range(0, pad_size) {
+			res.push(pad_byte as u8);
+		}
+		CryptoData { data: res }
+	}
+
+	pub fn pkcs7_pad_verify(&self, bsize: uint) -> bool {
+		let len = self.data.len();
+		let pad_byte = *self.data.last().unwrap();
+		let pad_size = pad_byte as uint;
+
+		// is it padded to bsize?
+		if len % bsize != 0 {
+			return false;
+		}
+
+		// check that all padding bytes are the same
+		for i in range(1, pad_size) {
+			if self.data[len - i] != pad_byte {
+				return false;
+			}
+		}
+		true
 	}
 }
