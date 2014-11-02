@@ -1,3 +1,5 @@
+extern crate openssl;
+
 use std::char;
 use utils::utils::{CryptoData};
 
@@ -25,7 +27,7 @@ pub fn chal2() {
 	println!("res: {}", res);
 }
 
-pub fn freq(c: char) -> f32 {
+pub fn eng_char_freq(c: char) -> f32 {
 	match c {
 		'E' => 12.02,
 		'T' => 9.10,
@@ -70,8 +72,7 @@ pub fn score_bytes(data: &CryptoData) -> f32 {
 	score = 0.0;
 	let mut it = data.get_data().iter();
 	for c in it {
-		//score += c.to_f32().unwrap();
-		score += freq(char::to_uppercase(*c as char));
+		score += eng_char_freq(char::to_uppercase(*c as char));
 	}
 	score
 }
@@ -86,9 +87,7 @@ pub fn guess_xor_byte(xored: CryptoData) -> (CryptoData, CryptoData, f32) {
 		let byte = CryptoData::from_text(bytestr.as_slice());
 		let res = xored.xor(&byte);
 		let score = score_bytes(&res);
-		//if score > 2.0 * xored_vec.len().to_f32().unwrap() {
-			//println!("{} = {}: {}", i, score, vec_to_text(&res));
-		//}
+
 		if score > best_score {
 			best_score = score;
 			best = res;
@@ -96,7 +95,7 @@ pub fn guess_xor_byte(xored: CryptoData) -> (CryptoData, CryptoData, f32) {
 		}
 	}
 
-	(best_byte, best, best_score) 
+	(best_byte, best, best_score)
 }
 
 // single byte XOR
@@ -104,7 +103,7 @@ pub fn chal3() {
 	let xored = CryptoData::from_hex("1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736");
 
 	let (c, best, best_score) = guess_xor_byte(xored);
-	
+
 	println!("score: {}", best_score);
 	println!("text: {}", best.to_text());
 	println!("hex: {}", best.to_hex());
@@ -119,7 +118,7 @@ pub fn chal4() {
 	let mut best = CryptoData::new();
 	let mut best_score: f32 = 0.0;
 
-	let fname = "src/4.txt";
+	let fname = "src/set1/4.txt";
 	let path = Path::new(fname);
 	let mut file = BufferedReader::new(File::open(&path));
 
@@ -127,7 +126,7 @@ pub fn chal4() {
 		let line = match line_iter { Ok(x) => x, Err(e) => panic!(e) };
 		let xored = CryptoData::from_hex(line.as_slice());
 		let (_, line_best, line_best_score) = guess_xor_byte(xored);
-		
+
 		if line_best_score > best_score {
 			best_score = line_best_score;
 			best = line_best;
@@ -151,12 +150,27 @@ I go crazy when I hear a cymbal");
 	println!("text: {}", res.to_text());
 }
 
+// Break repeating-key XOR
 pub fn chal6() {
 	//TODO
 }
 
+// AES in ECB mode
 pub fn chal7() {
-	//TODO
+	use std::io::File;
+	use openssl::crypto::symm;
+
+	let key = CryptoData::from_text("YELLOW SUBMARINE");
+
+	let fname = "src/set1/7.txt";
+	let path = Path::new(fname);
+	let contents = File::open(&path).read_to_string();
+	let base64_str = match contents { Ok(x) => x, Err(e) => panic!(e) };
+
+	let iv = CryptoData::new();
+	let encrypted = CryptoData::from_base64(base64_str.as_slice());
+	let decrypted = encrypted.decrypt(&key, &iv, symm::AES_128_ECB);
+	println!("text: {}", decrypted.to_text());
 }
 
 // Detect AES in ECB mode
@@ -166,7 +180,7 @@ pub fn chal8() {
 	use std::collections::HashSet;
 	use std::collections::HashMap;
 
-	let fname = "src/8.txt";
+	let fname = "src/set1/8.txt";
 	let path = Path::new(fname);
 	let mut file = BufferedReader::new(File::open(&path));
 	let mut dup_blocks: HashMap<String, uint> = HashMap::new();

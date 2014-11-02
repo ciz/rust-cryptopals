@@ -1,14 +1,17 @@
 extern crate serialize;
 extern crate collections;
+extern crate openssl;
 
 use std::char;
 use std::str;
 use std::fmt;
 use std::vec;
+use std::io::File;
 // have to use "self", otherwise it's an "unresolved import"
 use self::collections::vec::Vec;
-use self::serialize::base64::{ToBase64, STANDARD};
+use self::serialize::base64::{ToBase64,FromBase64,STANDARD};
 use self::serialize::hex::{FromHex,ToHex};
+use self::openssl::crypto::symm;
 
 #[deriving (PartialEq)]
 pub struct CryptoData {
@@ -33,6 +36,15 @@ impl CryptoData {
 	pub fn from_text(ascii: &str) -> CryptoData {
 		let bytes = vec::as_vec(ascii.as_bytes());
 		CryptoData { data: bytes.deref().clone() }
+	}
+
+	pub fn from_vec(vec: &Vec<u8>) -> CryptoData {
+		CryptoData { data: vec.clone() }
+	}
+
+	pub fn from_base64(base64_str: &str) -> CryptoData {
+		let byte_str = base64_str.from_base64().unwrap();
+		CryptoData { data: byte_str.clone() }
 	}
 
 	pub fn to_base64(&self) -> String {
@@ -104,5 +116,24 @@ impl CryptoData {
 			}
 		}
 		true
+	}
+
+	pub fn decrypt(&self, key: &CryptoData, iv: &CryptoData, cipher: symm::Type) -> CryptoData {
+		let decrypted = symm::decrypt(	cipher,
+						key.get_data().as_slice(),
+						iv.get_data().clone(),
+						self.data.as_slice());
+
+		CryptoData { data: decrypted }
+	}
+
+	// TODO: test this
+	pub fn encrypt(&self, key: &CryptoData, iv: &CryptoData, cipher: symm::Type) -> CryptoData {
+		let decrypted = symm::encrypt(	cipher,
+						key.get_data().as_slice(),
+						iv.get_data().clone(),
+						self.data.as_slice());
+
+		CryptoData { data: decrypted }
 	}
 }
