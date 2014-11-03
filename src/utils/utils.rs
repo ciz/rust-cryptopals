@@ -6,7 +6,7 @@ use std::char;
 use std::str;
 use std::fmt;
 use std::vec;
-use std::io::File;
+use std::iter::{range_step};
 // have to use "self", otherwise it's an "unresolved import"
 use self::collections::vec::Vec;
 use self::serialize::base64::{ToBase64,FromBase64,STANDARD};
@@ -29,6 +29,12 @@ impl CryptoData {
 		CryptoData { data: Vec::new() }
 	}
 
+	//pub fn clone(orig: &CryptoData) -> CryptoData {
+		//CryptoData { data: orig.get_data().clone() }
+	pub fn clone(&self) -> CryptoData {
+		CryptoData { data: self.data.clone() }
+	}
+
 	pub fn from_hex(hexstring: &str) -> CryptoData {
 		CryptoData { data: hexstring.from_hex().unwrap() }
 	}
@@ -48,6 +54,7 @@ impl CryptoData {
 	}
 
 	pub fn to_base64(&self) -> String {
+		// FIXME: invalid UTF-8 byte sequences cause panics
 		let byte_str = str::from_utf8(self.data.as_slice()).unwrap();
 		byte_str.as_bytes().to_base64(STANDARD)
 	}
@@ -66,6 +73,10 @@ impl CryptoData {
 
 	pub fn get_data(&self) -> &Vec<u8> {
 		&self.data
+	}
+
+	pub fn len(&self) -> uint {
+		self.data.len()
 	}
 
 	pub fn xor(&self, key: &CryptoData) -> CryptoData {
@@ -118,22 +129,77 @@ impl CryptoData {
 		true
 	}
 
+	//TODO: symm::decrypt is BROKEN and ALWAYS returns empty response
 	pub fn decrypt(&self, key: &CryptoData, iv: &CryptoData, cipher: symm::Type) -> CryptoData {
+		println!("data: {}, key {}", self.to_hex(), key.to_hex());
+		//println!("b64 data: {}, key {}", self.to_base64(), key.to_base64());
 		let decrypted = symm::decrypt(	cipher,
 						key.get_data().as_slice(),
 						iv.get_data().clone(),
 						self.data.as_slice());
 
+		println!("res: {}", decrypted.to_hex());
 		CryptoData { data: decrypted }
 	}
 
-	// TODO: test this
 	pub fn encrypt(&self, key: &CryptoData, iv: &CryptoData, cipher: symm::Type) -> CryptoData {
-		let decrypted = symm::encrypt(	cipher,
+		println!("data: {}, key {}", self.to_hex(), key.to_hex());
+		let encrypted = symm::encrypt(	cipher,
 						key.get_data().as_slice(),
 						iv.get_data().clone(),
 						self.data.as_slice());
 
-		CryptoData { data: decrypted }
+		println!("res: {}", encrypted.to_hex());
+		CryptoData { data: encrypted }
+	}
+
+	pub fn ECB_encrypt(&self, key: &CryptoData) -> CryptoData {
+		self.encrypt(key, &CryptoData::new(), symm::AES_128_ECB)
+	}
+
+	pub fn ECB_decrypt(&self, key: &CryptoData) -> CryptoData {
+		//println!("data: {}, key {}", self.to_hex(), key.to_hex());
+		self.decrypt(key, &CryptoData::new(), symm::AES_128_ECB)
+	}
+
+	pub fn CBC_encrypt(&self, key: &CryptoData, iv: &CryptoData) -> CryptoData {
+		//TODO: doesn't store the intermediate blocks
+		let mut result = Vec::new();
+		let mut to_xor = iv.clone();
+
+		for idx in range_step (0, self.len(), 16) {
+			let block_slice = self.data.as_slice().slice(idx, idx + 16);
+			//FIXME: isn't there a better way to create Vec from array?
+			let mut block_vec = Vec::new();
+			block_vec.push_all(block_slice);
+
+			let block = CryptoData::from_vec(&block_vec);
+			let xored = block.xor(&to_xor);
+			let encrypted = xored.ECB_encrypt(key);
+			result.push_all(encrypted.get_data().as_slice());
+			to_xor = encrypted;
+		}
+		CryptoData { data: result }
+	}
+
+	pub fn CBC_decrypt(&self, key: &CryptoData, iv: &CryptoData) -> CryptoData {
+		let mut result = Vec::new();
+		let mut to_xor = iv.clone();
+
+		for idx in range_step (0, self.len(), 16) {
+			let block_slice = self.data.as_slice().slice(idx, idx + 16);
+			//FIXME: isn't there a better way to create Vec from array?
+			let mut block_vec = Vec::new();
+			block_vec.push_all(block_slice);
+
+			let block = CryptoData::from_vec(&block_vec);
+			let decrypted = block.ECB_decrypt(key);
+			let xored = decrypted.xor(&to_xor);
+
+			// xor with ciphertext block
+			to_xor = block;
+			result.push_all(xored.get_data().as_slice());
+		}
+		CryptoData { data: result }
 	}
 }

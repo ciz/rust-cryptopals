@@ -3,6 +3,7 @@ extern crate openssl;
 use std::char;
 use utils::utils::{CryptoData};
 
+// Convert hex to base64
 pub fn chal1() {
 	// string: "I'm killing your brain like a poisonous mushroom"
 	// base64: "SSdtIGtpbGxpbmcgeW91ciBicmFpbiBsaWtlIGEgcG9pc29ub3VzIG11c2hyb29t"
@@ -82,7 +83,7 @@ pub fn guess_xor_byte(xored: CryptoData) -> (CryptoData, CryptoData, f32) {
 	let mut best_score: f32 = 0.0;
 	let mut best_byte = CryptoData::new();
 
-	for c in range(0u8, 255) {
+	for c in range(0u8, 256) {
 		let bytestr = String::from_char(1, c as char);
 		let byte = CryptoData::from_text(bytestr.as_slice());
 		let res = xored.xor(&byte);
@@ -158,8 +159,6 @@ pub fn chal6() {
 // AES in ECB mode
 pub fn chal7() {
 	use std::io::File;
-	use openssl::crypto::symm;
-
 	let key = CryptoData::from_text("YELLOW SUBMARINE");
 
 	let fname = "src/set1/7.txt";
@@ -167,9 +166,8 @@ pub fn chal7() {
 	let contents = File::open(&path).read_to_string();
 	let base64_str = match contents { Ok(x) => x, Err(e) => panic!(e) };
 
-	let iv = CryptoData::new();
 	let encrypted = CryptoData::from_base64(base64_str.as_slice());
-	let decrypted = encrypted.decrypt(&key, &iv, symm::AES_128_ECB);
+	let decrypted = encrypted.ECB_decrypt(&key);
 	println!("text: {}", decrypted.to_text());
 }
 
