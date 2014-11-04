@@ -129,7 +129,17 @@ impl CryptoData {
 		true
 	}
 
-	//TODO: symm::decrypt is BROKEN and ALWAYS returns empty response
+	pub fn encrypt(&self, key: &CryptoData, iv: &CryptoData, cipher: symm::Type) -> CryptoData {
+		println!("data: {}, key {}", self.to_hex(), key.to_hex());
+		let encrypted = symm::encrypt(	cipher,
+						key.get_data().as_slice(),
+						iv.get_data().clone(),
+						self.data.as_slice());
+
+		println!("res: {}", encrypted.to_hex());
+		CryptoData { data: encrypted }
+	}
+
 	pub fn decrypt(&self, key: &CryptoData, iv: &CryptoData, cipher: symm::Type) -> CryptoData {
 		println!("data: {}, key {}", self.to_hex(), key.to_hex());
 		//println!("b64 data: {}, key {}", self.to_base64(), key.to_base64());
@@ -142,24 +152,24 @@ impl CryptoData {
 		CryptoData { data: decrypted }
 	}
 
-	pub fn encrypt(&self, key: &CryptoData, iv: &CryptoData, cipher: symm::Type) -> CryptoData {
-		println!("data: {}, key {}", self.to_hex(), key.to_hex());
-		let encrypted = symm::encrypt(	cipher,
-						key.get_data().as_slice(),
-						iv.get_data().clone(),
-						self.data.as_slice());
-
-		println!("res: {}", encrypted.to_hex());
-		CryptoData { data: encrypted }
-	}
-
 	pub fn ECB_encrypt(&self, key: &CryptoData) -> CryptoData {
 		self.encrypt(key, &CryptoData::new(), symm::AES_128_ECB)
 	}
 
 	pub fn ECB_decrypt(&self, key: &CryptoData) -> CryptoData {
 		//println!("data: {}, key {}", self.to_hex(), key.to_hex());
-		self.decrypt(key, &CryptoData::new(), symm::AES_128_ECB)
+		//TODO: this doesn't work
+		//https://github.com/sfackler/rust-openssl/issues/40
+		//self.decrypt(key, &CryptoData::new(), symm::AES_128_ECB)
+		//workaround:
+
+		let c = symm::Crypter::new(symm::AES_128_ECB);
+		c.init(symm::Decrypt, key.get_data().as_slice(), Vec::new());
+		c.pad(false);
+		let mut r = c.update(self.data.as_slice());
+		let rest = c.finalize();
+		r.extend(rest.into_iter());
+		CryptoData { data: r }
 	}
 
 	pub fn CBC_encrypt(&self, key: &CryptoData, iv: &CryptoData) -> CryptoData {

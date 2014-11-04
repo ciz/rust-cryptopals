@@ -17,7 +17,6 @@ pub fn chal10() {
 
 	let key = CryptoData::from_text("YELLOW SUBMARINE");
 	let fname = "src/set2/10.txt";
-	//let fname = "x";
 	let path = Path::new(fname);
 	let contents = File::open(&path).read_to_string();
 	let base64_str = match contents { Ok(x) => x, Err(e) => panic!(e) };
@@ -27,19 +26,8 @@ pub fn chal10() {
 		zero_vec.push(0u8);
 	}
 	let iv = CryptoData::from_vec(&zero_vec);
-
-/*
-	let encrypted = CryptoData::from_text(base64_str.as_slice());
-	//println!("hex: {}", encrypted.to_hex());
-	let decrypted = encrypted.CBC_encrypt(&key, &iv);
-	//let decrypted = encrypted.CBC_encrypt(&key, &iv);
-	println!("text: {}", decrypted.to_hex());
-*/
-
 	let encrypted = CryptoData::from_base64(base64_str.as_slice());
-	//println!("hex: {}", encrypted.to_hex());
 	let decrypted = encrypted.CBC_decrypt(&key, &iv);
-	//let decrypted = encrypted.CBC_encrypt(&key, &iv);
 	println!("text: {}", decrypted.to_text());
 }
 
