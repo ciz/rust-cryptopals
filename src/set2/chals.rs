@@ -33,19 +33,39 @@ pub fn chal10() {
 }
 
 fn encryption_oracle(input: CryptoData) -> CryptoData {
+	//TODO: use fill_bytes
+	//gives "possibly uninitialized variable" for the array
+	//let mut key_bytes: [u8, ..16];
+	//rng.fill_bytes(&mut key_bytes);
 	use std::rand;
 	use std::rand::Rng;
 	let mut rng = rand::task_rng();
+
+	let prefix_size = rng.gen_range(5u, 10);
+	let suffix_size = rng.gen_range(5u, 10);
+	let mut prefix = Vec::new();
+	let mut suffix = Vec::new();
+
+	for _ in range(0, prefix_size) {
+		prefix.push(rng.gen::<u8>());
+	}
+	for _ in range(0, suffix_size) {
+		suffix.push(rng.gen::<u8>());
+	}
 
 	let cbc = rng.gen::<bool>();
 	let mut key_vec = Vec::new();
 	for _ in range(0u, 16) {
 		key_vec.push(rng.gen::<u8>());
 	}
-	//TODO: use fill_bytes
-	//gives "possibly uninitialized variable" for the array
-	//let mut key_bytes: [u8, ..16];
-	//rng.fill_bytes(&mut key_bytes);
+
+	// add random bytes to the beginning and the end
+	prefix.push_all(input.vec().as_slice());
+	prefix.push_all(suffix.as_slice());
+	let plain = CryptoData::from_vec(&prefix);
+	println!("padded: {}", plain.len());
+	println!("plain: {}", plain.to_hex());
+
 	let key = CryptoData::from_vec(&key_vec);
 
 	if cbc {
@@ -55,18 +75,17 @@ fn encryption_oracle(input: CryptoData) -> CryptoData {
 			iv_vec.push(rng.gen::<u8>());
 		}
 		let iv = CryptoData::from_vec(&iv_vec);
-		input.CBC_encrypt(&key, &iv)
+		plain.CBC_encrypt(&key, &iv)
 	} else {
 		// ECB
 		println!("ECB");
-		input.ECB_encrypt(&key)
+		plain.ECB_encrypt(&key)
 	}
 }
 
 fn encrypted_with_ECB(ciphertext: CryptoData, bsize: uint) -> bool {
 	use std::collections::HashSet;
 
-	println!("len: {}", ciphertext.len());
 	let mut block_set = HashSet::new();
 	let ciph_vec = ciphertext.vec();
 	let mut dups = 0u;
@@ -74,10 +93,10 @@ fn encrypted_with_ECB(ciphertext: CryptoData, bsize: uint) -> bool {
 	for idx in range_step (0, ciph_vec.len(), bsize) {
 		let block = ciph_vec.as_slice().slice(idx, idx + bsize);
 		if block_set.contains(&block) {
-			println!("dup block: {}", block);
+			//println!("dup block ({}): {}", idx, block);
 			dups += 1;
 		} else {
-			println!("new block: {}", block);
+			//println!("new block ({}): {}", idx, block);
 			block_set.insert(block.clone());
 		}
 	}
@@ -90,9 +109,7 @@ fn encrypted_with_ECB(ciphertext: CryptoData, bsize: uint) -> bool {
 pub fn chal11() {
 	let plain_text = String::from_char(256, 'a');
 	let plain = CryptoData::from_text(plain_text.as_slice());
-	println!("plain len: {}", plain.len())
 	let encrypted = encryption_oracle(plain);
-	println!("encrypted len: {}", encrypted.len())
 
 	if encrypted_with_ECB(encrypted, 16) {
 		println!("probably encrypted using ECB");

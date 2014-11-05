@@ -153,26 +153,33 @@ impl CryptoData {
 
 	pub fn ECB_encrypt(&self, key: &CryptoData) -> CryptoData {
 		//self.encrypt(key, &CryptoData::new(), symm::AES_128_ECB)
+
+		// pad input data if its length doesn't match blocksize
+		let plain = if (self.len() % 16 != 0) {
+			self.pkcs7_pad(16)
+		} else {
+			self.clone()
+		};
+
 		let c = symm::Crypter::new(symm::AES_128_ECB);
 		c.init(symm::Encrypt, key.vec().as_slice(), Vec::new());
 		c.pad(false);
-		let mut r = c.update(self.data.as_slice());
+		let mut r = c.update(plain.vec().as_slice());
 		let rest = c.finalize();
 		r.extend(rest.into_iter());
 		CryptoData { data: r }
 	}
 
 	pub fn ECB_decrypt(&self, key: &CryptoData) -> CryptoData {
-		//println!("data: {}, key {}", self.to_hex(), key.to_hex());
 		//TODO: this doesn't work
 		//https://github.com/sfackler/rust-openssl/issues/40
 		//self.decrypt(key, &CryptoData::new(), symm::AES_128_ECB)
-		//workaround:
 
 		let c = symm::Crypter::new(symm::AES_128_ECB);
 		c.init(symm::Decrypt, key.vec().as_slice(), Vec::new());
+		// need to disable padding, otherwise there's an additional padding block at the end
 		c.pad(false);
-		let mut r = c.update(self.data.as_slice());
+		let mut r = c.update(self.vec().as_slice());
 		let rest = c.finalize();
 		r.extend(rest.into_iter());
 		CryptoData { data: r }
@@ -186,7 +193,7 @@ impl CryptoData {
 		// pad input data
 		let plain = self.pkcs7_pad(16);
 
-		for idx in range_step (0, self.len(), 16) {
+		for idx in range_step (0, plain.len(), 16) {
 			let block_slice = plain.vec().as_slice().slice(idx, idx + 16);
 			//FIXME: isn't there a better way to create Vec from array?
 			let mut block_vec = Vec::new();
@@ -196,12 +203,14 @@ impl CryptoData {
 			let xored = block.xor(&to_xor);
 			let encrypted = xored.ECB_encrypt(key);
 			//println!("enc size: {}", encrypted.len());
+			//println!("enc : {}", encrypted.to_hex());
 			result.push_all(encrypted.vec().as_slice());
 			to_xor = encrypted;
 		}
 		CryptoData { data: result }
 	}
 
+	// TODO: strip pad
 	pub fn CBC_decrypt(&self, key: &CryptoData, iv: &CryptoData) -> CryptoData {
 		let mut result = Vec::new();
 		let mut to_xor = iv.clone();
