@@ -29,8 +29,6 @@ impl CryptoData {
 		CryptoData { data: Vec::new() }
 	}
 
-	//pub fn clone(orig: &CryptoData) -> CryptoData {
-		//CryptoData { data: orig.get_data().clone() }
 	pub fn clone(&self) -> CryptoData {
 		CryptoData { data: self.data.clone() }
 	}
@@ -71,7 +69,7 @@ impl CryptoData {
 		}
 	}
 
-	pub fn get_data(&self) -> &Vec<u8> {
+	pub fn vec(&self) -> &Vec<u8> {
 		&self.data
 	}
 
@@ -84,7 +82,7 @@ impl CryptoData {
 		let mut data_it = self.data.iter();
 
 		'outer: loop {
-			for k in key.get_data().iter() {
+			for k in key.vec().iter() {
 				let d =
 				match data_it.next() {
 					None => break 'outer,
@@ -129,11 +127,12 @@ impl CryptoData {
 		true
 	}
 
+	//FIXME: always returns an extra block at the end
 	pub fn encrypt(&self, key: &CryptoData, iv: &CryptoData, cipher: symm::Type) -> CryptoData {
-		println!("data: {}, key {}", self.to_hex(), key.to_hex());
+		println!("data: {}, key {}", self.data.to_hex(), key.to_hex());
 		let encrypted = symm::encrypt(	cipher,
-						key.get_data().as_slice(),
-						iv.get_data().clone(),
+						key.vec().as_slice(),
+						iv.vec().clone(),
 						self.data.as_slice());
 
 		println!("res: {}", encrypted.to_hex());
@@ -141,19 +140,26 @@ impl CryptoData {
 	}
 
 	pub fn decrypt(&self, key: &CryptoData, iv: &CryptoData, cipher: symm::Type) -> CryptoData {
-		println!("data: {}, key {}", self.to_hex(), key.to_hex());
+		//println!("data: {}, key {}", self.to_hex(), key.to_hex());
 		//println!("b64 data: {}, key {}", self.to_base64(), key.to_base64());
 		let decrypted = symm::decrypt(	cipher,
-						key.get_data().as_slice(),
-						iv.get_data().clone(),
+						key.vec().as_slice(),
+						iv.vec().clone(),
 						self.data.as_slice());
 
-		println!("res: {}", decrypted.to_hex());
+		//println!("res: {}", decrypted.to_hex());
 		CryptoData { data: decrypted }
 	}
 
 	pub fn ECB_encrypt(&self, key: &CryptoData) -> CryptoData {
-		self.encrypt(key, &CryptoData::new(), symm::AES_128_ECB)
+		//self.encrypt(key, &CryptoData::new(), symm::AES_128_ECB)
+		let c = symm::Crypter::new(symm::AES_128_ECB);
+		c.init(symm::Encrypt, key.vec().as_slice(), Vec::new());
+		c.pad(false);
+		let mut r = c.update(self.data.as_slice());
+		let rest = c.finalize();
+		r.extend(rest.into_iter());
+		CryptoData { data: r }
 	}
 
 	pub fn ECB_decrypt(&self, key: &CryptoData) -> CryptoData {
@@ -164,7 +170,7 @@ impl CryptoData {
 		//workaround:
 
 		let c = symm::Crypter::new(symm::AES_128_ECB);
-		c.init(symm::Decrypt, key.get_data().as_slice(), Vec::new());
+		c.init(symm::Decrypt, key.vec().as_slice(), Vec::new());
 		c.pad(false);
 		let mut r = c.update(self.data.as_slice());
 		let rest = c.finalize();
@@ -177,8 +183,11 @@ impl CryptoData {
 		let mut result = Vec::new();
 		let mut to_xor = iv.clone();
 
+		// pad input data
+		let plain = self.pkcs7_pad(16);
+
 		for idx in range_step (0, self.len(), 16) {
-			let block_slice = self.data.as_slice().slice(idx, idx + 16);
+			let block_slice = plain.vec().as_slice().slice(idx, idx + 16);
 			//FIXME: isn't there a better way to create Vec from array?
 			let mut block_vec = Vec::new();
 			block_vec.push_all(block_slice);
@@ -186,7 +195,8 @@ impl CryptoData {
 			let block = CryptoData::from_vec(&block_vec);
 			let xored = block.xor(&to_xor);
 			let encrypted = xored.ECB_encrypt(key);
-			result.push_all(encrypted.get_data().as_slice());
+			//println!("enc size: {}", encrypted.len());
+			result.push_all(encrypted.vec().as_slice());
 			to_xor = encrypted;
 		}
 		CryptoData { data: result }
@@ -208,7 +218,7 @@ impl CryptoData {
 
 			// xor with ciphertext block
 			to_xor = block;
-			result.push_all(xored.get_data().as_slice());
+			result.push_all(xored.vec().as_slice());
 		}
 		CryptoData { data: result }
 	}

@@ -71,7 +71,7 @@ pub fn eng_char_freq(c: char) -> f32 {
 pub fn score_bytes(data: &CryptoData) -> f32 {
 	let mut score: f32;
 	score = 0.0;
-	let mut it = data.get_data().iter();
+	let mut it = data.vec().iter();
 	for c in it {
 		score += eng_char_freq(char::to_uppercase(*c as char));
 	}
