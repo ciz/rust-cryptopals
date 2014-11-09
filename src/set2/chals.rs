@@ -194,7 +194,59 @@ pub fn chal13() {
 
 // Byte-at-a-time ECB decryption (Harder)
 pub fn chal14() {
-	//TODO
+	use std::rand;
+	use std::rand::Rng;
+	let mut rng = rand::task_rng();
+
+	let mut key_vec = Vec::new();
+	for _ in range(0u, 16) {
+		key_vec.push(rng.gen::<u8>());
+	}
+	let key = CryptoData::from_vec(&key_vec);
+
+	let mut prefix_vec = Vec::new();
+	for _ in range(0u, 128) {
+		prefix_vec.push(rng.gen::<u8>());
+	}
+	let prefix = CryptoData::from_vec(&prefix_vec);
+
+	let sec_b64ed = "Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkg
+aGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBq
+dXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUg
+YnkK";
+	let secret = CryptoData::from_base64(sec_b64ed);
+
+	//TODO: points 1 and 2
+	let blocksize = 16;
+
+	let prefix_remain = prefix.len() % blocksize;
+	let prefix_full_blocks = prefix.len() / blocksize;
+	let remain_str = String::from_char(blocksize - prefix_remain - 1, 'a');
+	let cut_prefix_vec = prefix.vec().as_slice().slice(prefix_full_blocks, prefix_full_blocks + prefix_remain);
+	let mut cut_prefix = Vec::new();
+	cut_prefix.push_all(cut_prefix_vec);
+	cut_prefix.push_all(remain_str.as_bytes());
+
+	let short_block = CryptoData::from_vec(&cut_prefix);
+	let table = create_table(&short_block, &key, blocksize);
+	let mut res = Vec::new();
+	let mut secvec = secret.vec().clone();
+
+	while secvec.len() > 0 {
+		let cat_block = short_block.cat(&CryptoData::from_vec(&secvec));
+		let short_enc = oracle_12(&cat_block, &key);
+
+		let block_slice = short_enc.vec().as_slice().slice(0, blocksize);
+		let mut block_vec = Vec::new();
+		block_vec.push_all(block_slice);
+		let first_block = CryptoData::from_vec(&block_vec);
+
+		//TODO: find is renamed to get in newer versions
+		let byte = table.find(&first_block).unwrap();
+		res.push(*byte);
+		secvec.remove(0);
+	}
+	println!("Deciphered:\n{}", CryptoData::from_vec(&res).to_text());
 }
 
 // PKCS#7 padding validation
