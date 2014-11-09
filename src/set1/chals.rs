@@ -2,6 +2,7 @@ extern crate openssl;
 
 use std::char;
 use utils::utils::{CryptoData};
+use std::iter::{range_inclusive};
 
 // Convert hex to base64
 pub fn chal1() {
@@ -83,7 +84,7 @@ pub fn guess_xor_byte(xored: CryptoData) -> (CryptoData, CryptoData, f32) {
 	let mut best_score: f32 = 0.0;
 	let mut best_byte = CryptoData::new();
 
-	for c in range(0u8, 256) {
+	for c in range_inclusive(0u8, 255) {
 		let bytestr = String::from_char(1, c as char);
 		let byte = CryptoData::from_text(bytestr.as_slice());
 		let res = xored.xor(&byte);

@@ -170,7 +170,7 @@ YnkK";
 	let mut res = Vec::new();
 	let mut secvec = secret.vec().clone();
 
-	while (secvec.len() > 0) {
+	while secvec.len() > 0 {
 		let cat_block = short_block.cat(&CryptoData::from_vec(&secvec));
 		let short_enc = oracle_12(&cat_block, &key);
 

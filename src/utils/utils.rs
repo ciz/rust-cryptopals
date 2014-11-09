@@ -155,7 +155,7 @@ impl CryptoData {
 		//self.encrypt(key, &CryptoData::new(), symm::AES_128_ECB)
 
 		// pad input data if its length doesn't match blocksize
-		let plain = if (self.len() % 16 != 0) {
+		let plain = if self.len() % 16 != 0 {
 			self.pkcs7_pad(16)
 		} else {
 			self.clone()
