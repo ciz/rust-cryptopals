@@ -18,8 +18,9 @@ fn main() {
 	chal8();
 	chal9();
 	chal10();
-*/
 	chal11();
+*/
+	chal12();
 /*
 	chal15();
 */

@@ -13,7 +13,7 @@ use self::serialize::base64::{ToBase64,FromBase64,STANDARD};
 use self::serialize::hex::{FromHex,ToHex};
 use self::openssl::crypto::symm;
 
-#[deriving (PartialEq)]
+#[deriving (Hash,PartialEq,Eq)]
 pub struct CryptoData {
 	data: Vec<u8>,
 }
@@ -230,5 +230,13 @@ impl CryptoData {
 			result.push_all(xored.vec().as_slice());
 		}
 		CryptoData { data: result }
+	}
+
+	pub fn cat(&self, other: &CryptoData) -> CryptoData {
+		let mut res = Vec::new();
+		res.push_all(self.data.as_slice());
+		res.push_all(other.vec().as_slice());
+
+		CryptoData { data: res }
 	}
 }
