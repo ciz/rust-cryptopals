@@ -20,8 +20,11 @@ fn main() {
 	chal10();
 	chal11();
 	chal12();
+	chal13();
 	chal14();
 	chal15();
-*/
 	chal16();
+*/
+	// last remaining from the first two sets
+	chal6();
 }

@@ -187,9 +187,69 @@ YnkK";
 	println!("Deciphered:\n{}", CryptoData::from_vec(&res).to_text());
 }
 
+fn parse_object(text: &str) -> HashMap<String, String> {
+	let mut res: HashMap<String, String> = HashMap::new();
+	for params in String::from_str(text).split_str("&") {
+		// ignore potential other =
+		let mut keyval = params.split_str("=").take(2);
+
+		let key = match keyval.next() {
+			Some(key) => key,
+			None => continue
+		};
+		let val = match keyval.next() {
+			Some(val) => val,
+			None => continue
+		};
+
+		res.insert(String::from_str(key), String::from_str(val));
+	}
+	res
+}
+
+fn profile_for(email: &str) -> String {
+	let mut escaped = String::from_str(email).replace("&", "%26").replace("=", "%3D");
+	escaped.push_str("&uid=10&role=user");
+	escaped
+}
+
+fn attack_profile(key: &CryptoData) -> CryptoData {
+	// force "role=" at the end of the first block
+	let input1 = "a@b";
+	let profile1 = profile_for(input1);
+	let enc_profile1 = CryptoData::from_text(profile1.as_slice()).ECB_encrypt(key);
+	let block1 = enc_profile1.vec().as_slice().slice(0, 16);
+
+	// force "admin" at the beginning of the second block
+	let input2 = "aaaaaaaaaaaaaaaaadmin";
+	let profile2 = profile_for(input2);
+	let enc_profile2 = CryptoData::from_text(profile2.as_slice()).ECB_encrypt(key);
+	let block2 = enc_profile2.vec().as_slice().slice(16, 32);
+
+	let mut cat_blocks = Vec::new();
+	cat_blocks.push_all(block1);
+	cat_blocks.push_all(block2);
+
+	CryptoData::from_vec(&cat_blocks)
+}
+
 // ECB cut-and-paste
 pub fn chal13() {
-	//TODO
+	let key = CryptoData::random(16);
+	let tampered = attack_profile(&key);
+	//println!("tampered: {}", tampered);
+
+	let dec_profile = tampered.ECB_decrypt(&key);
+	println!("text {}", dec_profile.to_text());
+	let parsed_profile = parse_object(dec_profile.to_text().as_slice());
+
+	match parsed_profile.find(&String::from_str("role")) {
+		Some(role) => match role.as_slice() {
+			"admin" => println!("ADMIN!"),
+			_ => println!("No")
+		},
+		None => println!("failed")
+	}
 }
 
 // Byte-at-a-time ECB decryption (Harder)
