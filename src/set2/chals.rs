@@ -8,7 +8,7 @@ use std::iter::{range_step,range_inclusive};
 // Implement PKCS#7 padding
 pub fn chal9() {
 	let text = CryptoData::from_text("YELLOW SUBMARINE");
-	let padded_text = text.pkcs7_pad(20);
+	let padded_text = text.pad(20);
 	println!("text: {}", text.to_hex());
 	println!("padded text: {}", padded_text.to_hex());
 }
@@ -253,14 +253,66 @@ YnkK";
 pub fn chal15() {
 	//let text = CryptoData::from_text("ICE ICE BABY\x04\x04\x04");
 	let text = CryptoData::from_text("ICE ICE BABY\x04\x04\x04\x04");
-	if text.pkcs7_pad_verify(16) {
+	if text.pad_verify(16) {
 		println!("text padded correctly");
 	} else {
 		println!("text has invalid padding");
 	}
 }
 
+fn wrap_and_encrypt(input: &str, key: &CryptoData, iv: &CryptoData) -> CryptoData {
+	let prefix = "comment1=cooking%20MCs;userdata=";
+	let postfix = ";comment2=%20like%20a%20pound%20of%20bacon";
+	let mut s = String::from_str(prefix);
+
+	let escaped = String::from_str(input).replace(";", "%3B").replace("=", "%3D");
+	s.push_str(escaped.as_slice());
+	s.push_str(postfix);
+
+	
+	let c = CryptoData::from_text(s.as_slice());
+	println!("orig hex: {}", c);
+	c.CBC_encrypt(key, iv)
+	//let padded = c.pad(16);
+	//padded.CBC_encrypt(key, iv)
+}
+
+fn decrypt_and_find(input: &CryptoData, key: &CryptoData, iv: &CryptoData) -> bool {
+	let decrypted = input.CBC_decrypt(key, iv);
+	let s = decrypted.to_text();
+	println!("decrypted: {}", s);
+	println!("decrypted: {}", decrypted.to_hex());
+	match s.find_str(";admin=true;") {
+		Some(_) => true,
+		_ => false
+	}
+}
+
+fn flip_bits(input: &CryptoData) -> CryptoData {
+	let mut vec = input.vec().clone();
+	//TODO: work on bits, don't cheat :-)
+	vec[32] = vec[32] + 1;
+	vec[38] = vec[38] + 1;
+	vec[43] = vec[43] + 1;
+	CryptoData::from_vec(&vec)
+}
+
 // CBC bitflipping attacks
 pub fn chal16() {
-	//TODO
+	let key = CryptoData::random(16);
+	let iv = CryptoData::random(16);
+	let text = "aaaaaaaaaaaaaaaa:admin<true:aaaa";
+	let c = CryptoData::from_text(text);
+	println!("input: {}", c.to_hex());
+	let encrypted = wrap_and_encrypt(text, &key, &iv);
+	println!("encrypted: {}", encrypted.to_hex());
+	let tampered = flip_bits(&encrypted);
+	println!("tampered:  {}", tampered.to_hex());
+
+	if decrypt_and_find(&tampered, &key, &iv) {
+		println!("FOUND");
+	} else {
+		println!("not found");
+	}
+
 }
