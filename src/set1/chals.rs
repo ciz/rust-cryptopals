@@ -79,7 +79,7 @@ pub fn score_bytes(data: &CryptoData) -> f32 {
 	score
 }
 
-pub fn guess_xor_byte(xored: CryptoData) -> (CryptoData, CryptoData, f32) {
+pub fn guess_xor_byte(xored: &CryptoData) -> (CryptoData, CryptoData, f32) {
 	let mut best = CryptoData::new();
 	let mut best_score: f32 = 0.0;
 	let mut best_byte = CryptoData::new();
@@ -104,7 +104,7 @@ pub fn guess_xor_byte(xored: CryptoData) -> (CryptoData, CryptoData, f32) {
 pub fn chal3() {
 	let xored = CryptoData::from_hex("1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736");
 
-	let (c, best, best_score) = guess_xor_byte(xored);
+	let (c, best, best_score) = guess_xor_byte(&xored);
 
 	println!("score: {}", best_score);
 	println!("text: {}", best.to_text());
@@ -127,7 +127,7 @@ pub fn chal4() {
 	for line_iter in file.lines() {
 		let line = match line_iter { Ok(x) => x, Err(e) => panic!(e) };
 		let xored = CryptoData::from_hex(line.as_slice());
-		let (_, line_best, line_best_score) = guess_xor_byte(xored);
+		let (_, line_best, line_best_score) = guess_xor_byte(&xored);
 
 		if line_best_score > best_score {
 			best_score = line_best_score;
@@ -152,9 +152,97 @@ I go crazy when I hear a cymbal");
 	println!("text: {}", res.to_text());
 }
 
+//Return the Hamming distance between equal-length sequences
+fn char_hamming_distance(x: &CryptoData, y: &CryptoData) -> uint {
+	let mut dist = 0u;
+	assert!(x.len() == y.len());
+	for (xc, yc) in x.vec().iter().zip(y.vec().iter()) {
+		if *xc != *yc {
+			dist += 1;
+		}
+	}
+	dist
+}
+
+//Return the Hamming distance between equal-length sequences
+fn bit_hamming_distance(x: &CryptoData, y: &CryptoData) -> uint {
+	let mut total_dist = 0u;
+	for (xc, yc) in x.vec().iter().zip(y.vec().iter()) {
+		let mut val = *xc ^ *yc;
+		let mut dist = 0u;
+
+		// Count the number of bits set
+		while val != 0 {
+			// A bit is set, so increment the count and clear the bit
+			dist += 1;
+			val &= val - 1;
+		}
+		total_dist += dist;
+	}
+
+	// Return the number of differing bits
+	total_dist
+}
+
 // Break repeating-key XOR
 pub fn chal6() {
-	//TODO
+	//FIXME: this code is ugly and not checking anything
+	use std::io::File;
+
+	let fname = "src/set1/6.txt";
+	let path = Path::new(fname);
+	let contents = File::open(&path).read_to_string();
+	let base64_str = match contents { Ok(x) => x, Err(e) => panic!(e) };
+
+	let enc = CryptoData::from_base64(base64_str.as_slice());
+	let mut size = 0u;
+	let mut best_dist = 100000u;
+
+	// find best keysize
+	for keysize in range(2, 40) {
+		let mut sum = 0;
+		let count = enc.len() / keysize - 1;
+		for i in range(0, count) {
+			let mut block_vec = Vec::new();
+			let first_slice = enc.vec().as_slice().slice(i * keysize, (i+1) * keysize);
+			block_vec.push_all(first_slice);
+			let first_block = CryptoData::from_vec(&block_vec);
+
+			let mut block_vec = Vec::new();
+			let second_slice = enc.vec().as_slice().slice((i+1)*keysize, (i+2) * keysize);
+			block_vec.push_all(second_slice);
+			let second_block = CryptoData::from_vec(&block_vec);
+
+			let dist = bit_hamming_distance(&first_block, &second_block);
+			sum += dist;
+		}
+
+		let my_dist = sum / count / keysize;
+		//println!("keysize: {}, dist: {}", keysize, my_dist);
+		if my_dist < best_dist {
+			size = keysize;
+			best_dist = my_dist;
+		}
+	}
+	println!("best keysize: {}", size);
+
+	let mut key_bytes = Vec::new();
+
+	// break and transpose into blocks
+	for position in range(0, size) {
+		let mut bytes = Vec::new();
+		for block in range(0, enc.len() / size) {
+			bytes.push(enc.vec()[block * size + position]);
+		}
+		let (ch, _, best_score) = guess_xor_byte(&CryptoData::from_vec(&bytes));
+		//println!("char: {}, score: {}", ch, best_score);
+		key_bytes.push(ch.vec()[0]);
+	}
+	let key = CryptoData::from_vec(&key_bytes);
+	let dec = enc.xor(&key);
+	//println!("decrypted: {}", dec);
+	println!("key: {}", key.to_text());
+	println!("decrypted: {}", dec.to_text());
 }
 
 // AES in ECB mode
