@@ -30,20 +30,18 @@ impl CryptoData {
 	}
 
 	pub fn random(size: uint) -> CryptoData {
-		//TODO: use fill_bytes
-		//gives "possibly uninitialized variable" for the array
-		//let mut key_bytes: [u8, ..16];
-		//rng.fill_bytes(&mut key_bytes);
 		use std::rand;
 		use std::rand::Rng;
 		let mut rng = rand::task_rng();
 
-		let mut vec = Vec::new();
+		//TODO: seems to be impossible to use array and fill_bytes,
+		// because the size isn't known at compile time
+		let mut bytes = Vec::new();
 		for _ in range(0u, size) {
-			vec.push(rng.gen::<u8>());
+			bytes.push(rng.gen::<u8>());
 		}
 
-		CryptoData::from_vec(&vec)
+		CryptoData::from_vec(&bytes)
 	}
 
 	pub fn clone(&self) -> CryptoData {
@@ -82,7 +80,6 @@ impl CryptoData {
 		let mut char_it = data_it.map(|&x| x as char);
 		let char_vec: Vec<char> = char_it.collect();
 		let s = String::from_chars(char_vec.as_slice());
-		//println!("s: {}", s);
 		s
 	}
 
@@ -144,7 +141,6 @@ impl CryptoData {
 		true
 	}
 
-	//FIXME: always returns an extra block at the end
 	pub fn encrypt(&self, key: &CryptoData, iv: &CryptoData, cipher: symm::Type) -> CryptoData {
 		println!("data: {}, key {}", self.data.to_hex(), key.to_hex());
 		let encrypted = symm::encrypt(	cipher,
@@ -158,7 +154,6 @@ impl CryptoData {
 
 	pub fn decrypt(&self, key: &CryptoData, iv: &CryptoData, cipher: symm::Type) -> CryptoData {
 		//println!("data: {}, key {}", self.to_hex(), key.to_hex());
-		//println!("b64 data: {}, key {}", self.to_base64(), key.to_base64());
 		let decrypted = symm::decrypt(	cipher,
 						key.vec().as_slice(),
 						iv.vec().clone(),
@@ -203,50 +198,43 @@ impl CryptoData {
 	}
 
 	pub fn CBC_encrypt(&self, key: &CryptoData, iv: &CryptoData) -> CryptoData {
-		//TODO: doesn't store the intermediate blocks
-		let mut result = Vec::new();
+		let mut result = CryptoData::new();
 		let mut to_xor = iv.clone();
 
 		// pad input data
 		let plain = self.pad(16);
+		let plain_slice = plain.vec().as_slice();
 
 		for idx in range_step (0, plain.len(), 16) {
-			let block_slice = plain.vec().as_slice().slice(idx, idx + 16);
-			//FIXME: isn't there a better way to create Vec from array?
-			let mut block_vec = Vec::new();
-			block_vec.push_all(block_slice);
-
-			let block = CryptoData::from_vec(&block_vec);
+			let block_slice = plain_slice.slice(idx, idx + 16);
+			let block = CryptoData::from_vec(&block_slice.to_vec());
 			let xored = block.xor(&to_xor);
 			let encrypted = xored.ECB_encrypt(key);
 			//println!("enc size: {}", encrypted.len());
 			//println!("enc : {}", encrypted.to_hex());
-			result.push_all(encrypted.vec().as_slice());
+			result = result.cat(&encrypted);
 			to_xor = encrypted;
 		}
-		CryptoData { data: result }
+		result
 	}
 
 	// TODO: strip pad
 	pub fn CBC_decrypt(&self, key: &CryptoData, iv: &CryptoData) -> CryptoData {
-		let mut result = Vec::new();
+		let mut result = CryptoData::new();
 		let mut to_xor = iv.clone();
+		let self_slice = self.data.as_slice();
 
 		for idx in range_step (0, self.len(), 16) {
-			let block_slice = self.data.as_slice().slice(idx, idx + 16);
-			//FIXME: isn't there a better way to create Vec from array?
-			let mut block_vec = Vec::new();
-			block_vec.push_all(block_slice);
-
-			let block = CryptoData::from_vec(&block_vec);
+			let block_slice = self_slice.slice(idx, idx + 16);
+			let block = CryptoData::from_vec(&block_slice.to_vec());
 			let decrypted = block.ECB_decrypt(key);
 			let xored = decrypted.xor(&to_xor);
 
 			// xor with ciphertext block
 			to_xor = block;
-			result.push_all(xored.vec().as_slice());
+			result = result.cat(&xored);
 		}
-		CryptoData { data: result }
+		result
 	}
 
 	pub fn cat(&self, other: &CryptoData) -> CryptoData {
