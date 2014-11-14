@@ -234,7 +234,7 @@ pub fn chal6() {
 		for block in range(0, enc.len() / size) {
 			bytes.push(enc.vec()[block * size + position]);
 		}
-		let (ch, _, best_score) = guess_xor_byte(&CryptoData::from_vec(&bytes));
+		let (ch, _, _) = guess_xor_byte(&CryptoData::from_vec(&bytes));
 		//println!("char: {}, score: {}", ch, best_score);
 		key_bytes.push(ch.vec()[0]);
 	}

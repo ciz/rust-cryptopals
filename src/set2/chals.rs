@@ -34,48 +34,26 @@ pub fn chal10() {
 }
 
 fn encryption_oracle(input: CryptoData) -> CryptoData {
-	//TODO: use fill_bytes
-	//gives "possibly uninitialized variable" for the array
-	//let mut key_bytes: [u8, ..16];
-	//rng.fill_bytes(&mut key_bytes);
 	use std::rand;
 	use std::rand::Rng;
 	let mut rng = rand::task_rng();
+	let cbc = rng.gen::<bool>();
 
 	let prefix_size = rng.gen_range(5u, 10);
 	let suffix_size = rng.gen_range(5u, 10);
-	let mut prefix = Vec::new();
-	let mut suffix = Vec::new();
+	let prefix = CryptoData::random(prefix_size);
+	let suffix = CryptoData::random(suffix_size);
 
-	for _ in range(0, prefix_size) {
-		prefix.push(rng.gen::<u8>());
-	}
-	for _ in range(0, suffix_size) {
-		suffix.push(rng.gen::<u8>());
-	}
-
-	let cbc = rng.gen::<bool>();
-	let mut key_vec = Vec::new();
-	for _ in range(0u, 16) {
-		key_vec.push(rng.gen::<u8>());
-	}
-	let key = CryptoData::from_vec(&key_vec);
+	let key = CryptoData::random(16);
 
 	// add random bytes to the beginning and the end
-	prefix.push_all(input.vec().as_slice());
-	prefix.push_all(suffix.as_slice());
-	let plain = CryptoData::from_vec(&prefix);
-	println!("padded: {}", plain.len());
-	println!("plain: {}", plain.to_hex());
-
+	let plain = prefix.cat(&input).cat(&suffix);
+	//println!("padded size: {}", plain.len());
+	//println!("plain: {}", plain.to_hex());
 
 	if cbc {
 		println!("CBC");
-		let mut iv_vec = Vec::new();
-		for _ in range(0u, 16) {
-			iv_vec.push(rng.gen::<u8>());
-		}
-		let iv = CryptoData::from_vec(&iv_vec);
+		let iv = CryptoData::random(16);
 		plain.CBC_encrypt(&key, &iv)
 	} else {
 		// ECB
@@ -145,15 +123,7 @@ fn create_table(input: &CryptoData, key: &CryptoData, blocksize: uint) -> HashMa
 
 // Byte-at-a-time ECB decryption (Simple)
 pub fn chal12() {
-	use std::rand;
-	use std::rand::Rng;
-	let mut rng = rand::task_rng();
-
-	let mut key_vec = Vec::new();
-	for _ in range(0u, 16) {
-		key_vec.push(rng.gen::<u8>());
-	}
-	let key = CryptoData::from_vec(&key_vec);
+	let key = CryptoData::random(16);
 
 	let sec_b64ed = "Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkg
 aGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBq
@@ -254,21 +224,8 @@ pub fn chal13() {
 
 // Byte-at-a-time ECB decryption (Harder)
 pub fn chal14() {
-	use std::rand;
-	use std::rand::Rng;
-	let mut rng = rand::task_rng();
-
-	let mut key_vec = Vec::new();
-	for _ in range(0u, 16) {
-		key_vec.push(rng.gen::<u8>());
-	}
-	let key = CryptoData::from_vec(&key_vec);
-
-	let mut prefix_vec = Vec::new();
-	for _ in range(0u, 128) {
-		prefix_vec.push(rng.gen::<u8>());
-	}
-	let prefix = CryptoData::from_vec(&prefix_vec);
+	let key = CryptoData::random(16);
+	let prefix = CryptoData::random(128);
 
 	let sec_b64ed = "Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkg
 aGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBq

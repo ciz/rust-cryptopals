@@ -30,6 +30,10 @@ impl CryptoData {
 	}
 
 	pub fn random(size: uint) -> CryptoData {
+		//TODO: use fill_bytes
+		//gives "possibly uninitialized variable" for the array
+		//let mut key_bytes: [u8, ..16];
+		//rng.fill_bytes(&mut key_bytes);
 		use std::rand;
 		use std::rand::Rng;
 		let mut rng = rand::task_rng();
