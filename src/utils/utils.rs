@@ -3,10 +3,10 @@ extern crate collections;
 extern crate openssl;
 
 use std::char;
-use std::str;
 use std::fmt;
 use std::vec;
 use std::iter::{range_step};
+
 // have to use "self", otherwise it's an "unresolved import"
 use self::collections::vec::Vec;
 use self::serialize::base64::{ToBase64,FromBase64,STANDARD};

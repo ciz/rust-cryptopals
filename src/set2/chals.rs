@@ -111,9 +111,7 @@ fn create_table(input: &CryptoData, key: &CryptoData, blocksize: uint) -> HashMa
 		let output = oracle_12(&cated, key);
 
 		let block_slice = output.vec().as_slice().slice(0, blocksize);
-		let mut block_vec = Vec::new();
-		block_vec.push_all(block_slice);
-		let first_block = CryptoData::from_vec(&block_vec);
+		let first_block = CryptoData::from_vec(&block_slice.to_vec());
 
 		byte_block.insert(first_block.clone(), b);
 		//println!("xkey: {} xval: {}", first_block, b);
@@ -145,12 +143,9 @@ YnkK";
 		let short_enc = oracle_12(&cat_block, &key);
 
 		let block_slice = short_enc.vec().as_slice().slice(0, blocksize);
-		let mut block_vec = Vec::new();
-		block_vec.push_all(block_slice);
-		let first_block = CryptoData::from_vec(&block_vec);
+		let first_block = CryptoData::from_vec(&block_slice.to_vec());
 
-		//TODO: find is renamed to get in newer versions
-		let byte = table.find(&first_block).unwrap();
+		let byte = table.get(&first_block).unwrap();
 		res.push(*byte);
 		secvec.remove(0);
 	}
@@ -213,7 +208,7 @@ pub fn chal13() {
 	println!("text {}", dec_profile.to_text());
 	let parsed_profile = parse_object(dec_profile.to_text().as_slice());
 
-	match parsed_profile.find(&String::from_str("role")) {
+	match parsed_profile.get(&String::from_str("role")) {
 		Some(role) => match role.as_slice() {
 			"admin" => println!("ADMIN!"),
 			_ => println!("No")
@@ -254,12 +249,9 @@ YnkK";
 		let short_enc = oracle_12(&cat_block, &key);
 
 		let block_slice = short_enc.vec().as_slice().slice(0, blocksize);
-		let mut block_vec = Vec::new();
-		block_vec.push_all(block_slice);
-		let first_block = CryptoData::from_vec(&block_vec);
+		let first_block = CryptoData::from_vec(&block_slice.to_vec());
 
-		//TODO: find is renamed to get in newer versions
-		let byte = table.find(&first_block).unwrap();
+		let byte = table.get(&first_block).unwrap();
 		res.push(*byte);
 		secvec.remove(0);
 	}
