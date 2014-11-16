@@ -234,12 +234,11 @@ YnkK";
 	let prefix_remain = prefix.len() % blocksize;
 	let prefix_full_blocks = prefix.len() / blocksize;
 	let remain_str = String::from_char(blocksize - prefix_remain - 1, 'a');
-	let cut_prefix_vec = prefix.vec().as_slice().slice(prefix_full_blocks, prefix_full_blocks + prefix_remain);
-	let mut cut_prefix = Vec::new();
-	cut_prefix.push_all(cut_prefix_vec);
-	cut_prefix.push_all(remain_str.as_bytes());
 
-	let short_block = CryptoData::from_vec(&cut_prefix);
+	let cut_prefix_vec = prefix.vec().as_slice().slice(prefix_full_blocks, prefix_full_blocks + prefix_remain);
+	let cut_prefix = CryptoData::from_vec(&cut_prefix_vec.to_vec());
+	let short_block = cut_prefix.cat(&CryptoData::from_text(remain_str.as_slice()));
+
 	let table = create_table(&short_block, &key, blocksize);
 	let mut res = Vec::new();
 	let mut secvec = secret.vec().clone();
@@ -282,8 +281,6 @@ fn wrap_and_encrypt(input: &str, key: &CryptoData, iv: &CryptoData) -> CryptoDat
 	let c = CryptoData::from_text(s.as_slice());
 	println!("orig hex: {}", c);
 	c.CBC_encrypt(key, iv)
-	//let padded = c.pad(16);
-	//padded.CBC_encrypt(key, iv)
 }
 
 fn decrypt_and_find(input: &CryptoData, key: &CryptoData, iv: &CryptoData) -> bool {

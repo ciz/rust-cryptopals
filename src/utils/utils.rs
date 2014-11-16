@@ -44,6 +44,21 @@ impl CryptoData {
 		CryptoData::from_vec(&bytes)
 	}
 
+	pub fn zero(size: uint) -> CryptoData {
+		let zeros = Vec::from_elem(size, 0u8);
+		CryptoData { data: zeros }
+	}
+
+	pub fn cut(&self, count: uint) -> CryptoData {
+		//TODO: there must be an easier way than this
+		// and handle errors
+		let mut bytes = Vec::new();
+		for byte in self.data.iter().take(count) {
+			bytes.push(*byte);
+		}
+		CryptoData { data: bytes }
+	}
+
 	pub fn clone(&self) -> CryptoData {
 		CryptoData { data: self.data.clone() }
 	}
@@ -89,6 +104,14 @@ impl CryptoData {
 
 	pub fn len(&self) -> uint {
 		self.data.len()
+	}
+
+	pub fn cat(&self, other: &CryptoData) -> CryptoData {
+		let mut res = Vec::new();
+		res.push_all(self.data.as_slice());
+		res.push_all(other.vec().as_slice());
+
+		CryptoData { data: res }
 	}
 
 	pub fn xor(&self, key: &CryptoData) -> CryptoData {
@@ -237,11 +260,39 @@ impl CryptoData {
 		result
 	}
 
-	pub fn cat(&self, other: &CryptoData) -> CryptoData {
-		let mut res = Vec::new();
-		res.push_all(self.data.as_slice());
-		res.push_all(other.vec().as_slice());
+	pub fn CTR_encrypt(&self, key: &CryptoData, nonce: &CryptoData, counter: u64) -> CryptoData {
+		use std::io::MemWriter;
+		let mut result = CryptoData::new();
+		let mut w = MemWriter::new();
+		let mut le_ctr = counter.to_le();
+		w.write_le_u64(le_ctr);
+		let ctr_cd = CryptoData::from_vec(&w.unwrap());
+		let mut nonce_ctr = nonce.cat(&ctr_cd);
 
-		CryptoData { data: res }
+		for idx in range_step (0, self.data.len(), 16) {
+			let end = if idx + 16 < self.data.len() {
+				idx + 16
+			} else {
+				self.data.len()
+			};
+
+			let block_slice = self.data.slice(idx, end);
+			let block = CryptoData::from_vec(&block_slice.to_vec());
+			let encrypted = nonce_ctr.ECB_encrypt(key);
+			let xored = block.xor(&encrypted.cut(block.len()));
+			result = result.cat(&xored);
+
+			let mut w = MemWriter::new();
+			le_ctr += 1;
+			w.write_le_u64(le_ctr);
+			let new_ctr = CryptoData::from_vec(&w.unwrap());
+			nonce_ctr = nonce.cat(&new_ctr);
+		}
+		result
+	}
+
+	// same as encryption
+	pub fn CTR_decrypt(&self, key: &CryptoData, nonce: &CryptoData, counter: u64) -> CryptoData {
+		self.CTR_encrypt(key, nonce, counter)
 	}
 }
