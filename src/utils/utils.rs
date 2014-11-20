@@ -102,6 +102,11 @@ impl CryptoData {
 		&self.data
 	}
 
+	pub fn block(&self, idx: uint, bsize: uint) -> CryptoData {
+		assert!(idx < self.data.len() / bsize);
+		CryptoData { data: self.data.as_slice().slice(idx * bsize, (idx + 1) * bsize).to_vec() }
+	}
+
 	pub fn len(&self) -> uint {
 		self.data.len()
 	}
@@ -155,13 +160,45 @@ impl CryptoData {
 			return false;
 		}
 
+		// check for allowed padding bytes
+		if !(0 < pad_size && pad_size <= bsize) {
+			//println!("wrong pad byte: {}", pad_size);
+			return false;
+		}
+
 		// check that all padding bytes are the same
-		for i in range(1, pad_size) {
-			if self.data[len - i] != pad_byte {
+		for i in range(0, pad_size) {
+			if self.data[len - i - 1] != pad_byte {
 				return false;
 			}
 		}
 		true
+	}
+
+	pub fn pad_strip(&self, bsize: uint) -> CryptoData {
+		let len = self.data.len();
+		let pad_byte = *self.data.last().unwrap();
+		let pad_size = pad_byte as uint;
+
+		// is it padded to bsize?
+		if len % bsize != 0 {
+			return self.clone();
+		}
+
+		let mut ok = true;
+		// check that all padding bytes are the same
+		for i in range(1, pad_size) {
+			if self.data[len - i] != pad_byte {
+				ok = false;
+			}
+		}
+
+		if ok {
+			let new_slice = self.vec().as_slice().slice(0, len - 1);
+			CryptoData::from_vec(&new_slice.to_vec())
+		} else {
+			self.clone()
+		}
 	}
 
 	pub fn encrypt(&self, key: &CryptoData, iv: &CryptoData, cipher: symm::Type) -> CryptoData {
