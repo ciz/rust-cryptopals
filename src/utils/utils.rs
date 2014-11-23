@@ -50,13 +50,9 @@ impl CryptoData {
 	}
 
 	pub fn cut(&self, count: uint) -> CryptoData {
-		//TODO: there must be an easier way than this
-		// and handle errors
-		let mut bytes = Vec::new();
-		for byte in self.data.iter().take(count) {
-			bytes.push(*byte);
-		}
-		CryptoData { data: bytes }
+		//TODO: handle errors
+		let vec: Vec<u8> = self.data.iter().take(count).map(|x| *x).collect();
+		CryptoData { data: vec }
 	}
 
 	pub fn clone(&self) -> CryptoData {
@@ -332,6 +328,26 @@ impl CryptoData {
 	pub fn CTR_decrypt(&self, key: &CryptoData, nonce: &CryptoData, counter: u64) -> CryptoData {
 		self.CTR_encrypt(key, nonce, counter)
 	}
+
+	// count Hamming distance to a data string
+	pub fn hamming_distance(&self, other: &CryptoData) -> uint {
+		let mut total_dist = 0u;
+		for (xc, yc) in self.data.iter().zip(other.vec().iter()) {
+			let mut val = *xc ^ *yc;
+			let mut dist = 0u;
+
+			// Count the number of bits set
+			while val != 0 {
+				// A bit is set, so increment the count and clear the bit
+				dist += 1;
+				val &= val - 1;
+			}
+			total_dist += dist;
+		}
+
+		// Return the number of differing bits
+		total_dist
+	}
 }
 
 /*
@@ -358,7 +374,7 @@ impl MersenneTwister {
 		self.MT[0] = seed;
 		for i in range(1, 624) { // loop over each other element
 			//TODO: this likely won't work
-			self.MT[i] = ((1812433253 * (self.MT[i-1] ^ (self.MT[i-1] >> 30)) + i) as u32 as uint); // 0x6c078965
+			self.MT[i] = (1812433253 * (self.MT[i-1] ^ (self.MT[i-1] >> 30)) + i) as u32 as uint; // 0x6c078965
 			//self.MT[i] = lowest_32_bits_of(1812433253 * (self.MT[i-1] ^ (self.MT[i-1] >> 30)) + i); // 0x6c078965
 		}
 	}

@@ -29,7 +29,7 @@ pub fn chal2() {
 	println!("res: {}", res);
 }
 
-pub fn eng_char_freq(c: char) -> f32 {
+fn eng_char_freq(c: char) -> f32 {
 	match c {
 		'E' => 12.02,
 		'T' => 9.10,
@@ -69,7 +69,7 @@ pub fn eng_char_freq(c: char) -> f32 {
 	}
 }
 
-pub fn score_bytes(data: &CryptoData) -> f32 {
+fn score_bytes(data: &CryptoData) -> f32 {
 	let mut score: f32;
 	score = 0.0;
 	let mut it = data.vec().iter();
@@ -79,7 +79,7 @@ pub fn score_bytes(data: &CryptoData) -> f32 {
 	score
 }
 
-pub fn guess_xor_byte(xored: &CryptoData) -> (CryptoData, CryptoData, f32) {
+fn guess_xor_byte(xored: &CryptoData) -> (CryptoData, CryptoData, f32) {
 	let mut best = CryptoData::new();
 	let mut best_score: f32 = 0.0;
 	let mut best_byte = CryptoData::new();
@@ -164,26 +164,6 @@ fn char_hamming_distance(x: &CryptoData, y: &CryptoData) -> uint {
 	dist
 }
 
-//Return the Hamming distance between equal-length sequences
-fn bit_hamming_distance(x: &CryptoData, y: &CryptoData) -> uint {
-	let mut total_dist = 0u;
-	for (xc, yc) in x.vec().iter().zip(y.vec().iter()) {
-		let mut val = *xc ^ *yc;
-		let mut dist = 0u;
-
-		// Count the number of bits set
-		while val != 0 {
-			// A bit is set, so increment the count and clear the bit
-			dist += 1;
-			val &= val - 1;
-		}
-		total_dist += dist;
-	}
-
-	// Return the number of differing bits
-	total_dist
-}
-
 // Break repeating-key XOR
 pub fn chal6() {
 	//FIXME: this code is ugly and not checking anything
@@ -213,7 +193,7 @@ pub fn chal6() {
 			block_vec.push_all(second_slice);
 			let second_block = CryptoData::from_vec(&block_vec);
 
-			let dist = bit_hamming_distance(&first_block, &second_block);
+			let dist = first_block.hamming_distance(&second_block);
 			sum += dist;
 		}
 
