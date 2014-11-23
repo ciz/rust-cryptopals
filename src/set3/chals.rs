@@ -1,4 +1,4 @@
-use utils::utils::{CryptoData};
+use utils::utils::{CryptoData, guess_xor_key};
 use std::iter::{range_inclusive};
 
 fn select_and_encrypt() -> (CryptoData, CryptoData, CryptoData) {
@@ -58,6 +58,7 @@ fn guess_block(c1: &CryptoData, c2: &CryptoData, key: &CryptoData, iv: &CryptoDa
 			}
 		}
 
+		// recover a byte of the second block of the plaintext
 		let plain_byte = (i as u8 + 1) ^ c1.vec()[15 - i] ^ p2_mod;
 		p2_bytes[15 - i] = plain_byte;
 	}
@@ -109,7 +110,23 @@ pub fn chal19() {
 
 // Break fixed-nonce CTR statistically
 pub fn chal20() {
-//TODO
+	use std::io::BufferedReader;
+	use std::io::File;
+
+	let fname = "src/set3/20.txt";
+	let path = Path::new(fname);
+	let mut file = BufferedReader::new(File::open(&path));
+
+	let lines: Vec<CryptoData> = file.lines().map(|x| CryptoData::from_base64(x.unwrap().as_slice())).collect();
+	// use the length of the shortest line as keysize
+	let keysize = lines.iter().min_by(|x| x.len()).unwrap().len();
+	let truncated: Vec<CryptoData> = lines.iter().map(|x| x.cut(keysize)).collect();
+
+	let key = guess_xor_key(&truncated.iter().fold(CryptoData::new(), |a, b| a.cat(b)), keysize);
+	let dec_texts: Vec<CryptoData> = truncated.iter().map(|x| x.xor(&key)).collect();
+	for dec in dec_texts.iter() {
+		println!("{}", dec.to_text());
+	}
 }
 
 // Implement the MT19937 Mersenne Twister RNG
