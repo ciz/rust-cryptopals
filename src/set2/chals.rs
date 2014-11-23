@@ -296,10 +296,9 @@ fn decrypt_and_find(input: &CryptoData, key: &CryptoData, iv: &CryptoData) -> bo
 
 fn flip_bits(input: &CryptoData) -> CryptoData {
 	let mut vec = input.vec().clone();
-	//TODO: work on bits, don't cheat :-)
-	vec[32] = vec[32] + 1;
-	vec[38] = vec[38] + 1;
-	vec[43] = vec[43] + 1;
+	vec[32] = vec[32] ^ 1;
+	vec[38] = vec[38] ^ 1;
+	vec[43] = vec[43] ^ 1;
 	CryptoData::from_vec(&vec)
 }
 
