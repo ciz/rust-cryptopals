@@ -1,7 +1,7 @@
 extern crate openssl;
 
-use std::char;
-use utils::utils::{CryptoData, guess_xor_byte, guess_xor_key};
+use utils::utils::{guess_xor_byte, guess_xor_key};
+use utils::cryptodata::{CryptoData};
 
 // Convert hex to base64
 pub fn chal1() {

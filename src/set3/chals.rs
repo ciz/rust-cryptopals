@@ -1,4 +1,6 @@
-use utils::utils::{CryptoData, guess_xor_key};
+use utils::utils::{guess_xor_key};
+use utils::cryptodata::{CryptoData};
+use utils::mersenne::{MersenneTwister};
 use std::iter::{range_inclusive};
 
 fn select_and_encrypt() -> (CryptoData, CryptoData, CryptoData) {
@@ -131,7 +133,11 @@ pub fn chal20() {
 
 // Implement the MT19937 Mersenne Twister RNG
 pub fn chal21() {
-	// implemented in utils::MersenneTwister
+	let mut mt = MersenneTwister::new();
+	mt.init(123);
+	for _ in range(0u, 20) {
+		println!("{}", mt.extract_number());
+	}
 }
 
 // Crack an MT19937 seed

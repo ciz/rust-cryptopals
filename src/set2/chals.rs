@@ -1,6 +1,6 @@
 extern crate collections;
 
-use utils::utils::{CryptoData};
+use utils::cryptodata::{CryptoData};
 use self::collections::vec::Vec;
 use std::collections::HashMap;
 use std::iter::{range_step,range_inclusive};
