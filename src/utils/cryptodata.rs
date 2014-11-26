@@ -50,9 +50,7 @@ impl CryptoData {
 	}
 
 	pub fn cut(&self, count: uint) -> CryptoData {
-		//TODO: handle errors
-		let vec: Vec<u8> = self.data.iter().take(count).map(|x| *x).collect();
-		CryptoData { data: vec }
+		self.slice(0, count - 1)
 	}
 
 	pub fn clone(&self) -> CryptoData {
@@ -87,11 +85,8 @@ impl CryptoData {
 	}
 
 	pub fn to_text(&self) -> String {
-		let data_it = self.data.iter();
-		let mut char_it = data_it.map(|&x| x as char);
-		let char_vec: Vec<char> = char_it.collect();
-		let s = String::from_chars(char_vec.as_slice());
-		s
+		let char_vec: Vec<char> = self.data.iter().map(|&x| x as char).collect();
+		String::from_chars(char_vec.as_slice())
 	}
 
 	pub fn vec(&self) -> &Vec<u8> {
@@ -99,8 +94,13 @@ impl CryptoData {
 	}
 
 	pub fn block(&self, idx: uint, bsize: uint) -> CryptoData {
-		assert!(idx < self.data.len() / bsize);
-		CryptoData { data: self.data.as_slice().slice(idx * bsize, (idx + 1) * bsize).to_vec() }
+		self.slice(idx * bsize, (idx + 1) * bsize)
+	}
+
+	pub fn slice(&self, start: uint, end: uint) -> CryptoData {
+		assert!(start <= end);
+		assert!(end <= self.data.len());
+		CryptoData { data: self.data.as_slice().slice(start, end).to_vec() }
 	}
 
 	pub fn len(&self) -> uint {
@@ -290,6 +290,8 @@ impl CryptoData {
 			to_xor = block;
 			result = result.cat(&xored);
 		}
+		//TODO: doesn't work
+		//result.pad_strip(16)
 		result
 	}
 
