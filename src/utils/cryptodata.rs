@@ -50,7 +50,8 @@ impl CryptoData {
 	}
 
 	pub fn cut(&self, count: uint) -> CryptoData {
-		self.slice(0, count - 1)
+		//assert!(count > 0);
+		self.slice(0, count)
 	}
 
 	pub fn clone(&self) -> CryptoData {
