@@ -37,6 +37,7 @@ fn main() {
 	chal20();
 	chal21();
 	// set 4
-*/
 	chal25();
+*/
+	chal26();
 }

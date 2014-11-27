@@ -58,9 +58,59 @@ pub fn chal25() {
 	println!("cracked: {}", cracked.to_text());
 }
 
+//TODO: these functions are common with challenge 16
+fn wrap_and_encrypt(input: &str, key: &CryptoData, nonce: &CryptoData, counter: u64) -> CryptoData {
+	let prefix = "comment1=cooking%20MCs;userdata=";
+	let postfix = ";comment2=%20like%20a%20pound%20of%20bacon";
+	let mut s = String::from_str(prefix);
+
+	let escaped = String::from_str(input).replace(";", "%3B").replace("=", "%3D");
+	println!("escaped {}", escaped);
+	s.push_str(escaped.as_slice());
+	s.push_str(postfix);
+
+	let c = CryptoData::from_text(s.as_slice());
+	println!("orig hex: {}", c);
+	c.CTR_encrypt(key, nonce, counter)
+}
+
+fn decrypt_and_find(input: &CryptoData, key: &CryptoData, nonce: &CryptoData, counter: u64) -> bool {
+	let decrypted = input.CTR_decrypt(key, nonce, counter);
+	let s = decrypted.to_text();
+	println!("decrypted: {}", s);
+	println!("decrypted: {}", decrypted.to_hex());
+	match s.find_str(";admin=true;") {
+		Some(_) => true,
+		_ => false
+	}
+}
+
+fn flip_bits(input: &CryptoData) -> CryptoData {
+	let mut vec = input.vec().clone();
+	vec[48] = vec[48] ^ 1;
+	vec[54] = vec[54] ^ 1;
+	vec[59] = vec[59] ^ 1;
+	CryptoData::from_vec(&vec)
+}
+
 // CTR bitflipping
 pub fn chal26() {
-	//TODO
+	let key = CryptoData::random(16);
+	let nonce = CryptoData::random(8);
+	let counter = 1u64;
+	let text = "aaaaaaaaaaaaaaaa:admin<true:aaaa";
+	let c = CryptoData::from_text(text);
+	println!("input: {}", c.to_hex());
+	let encrypted = wrap_and_encrypt(text, &key, &nonce, counter);
+	println!("encrypted: {}", encrypted.to_hex());
+	let tampered = flip_bits(&encrypted);
+	println!("tampered:  {}", tampered.to_hex());
+
+	if decrypt_and_find(&tampered, &key, &nonce, counter) {
+		println!("FOUND");
+	} else {
+		println!("not found");
+	}
 }
 
 // Recover the key from CBC with IV=Key
