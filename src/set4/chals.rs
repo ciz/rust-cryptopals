@@ -113,9 +113,54 @@ pub fn chal26() {
 	}
 }
 
+//fn check_valid_ascii(text: &CryptoData) -> bool {
+fn check_valid_ascii(text: &str) -> bool {
+	let mut ret = true;
+	for byte in text.chars() {
+	//for byte in text.vec().iter() {
+		//match *byte {
+		match byte as u8 {
+			0...31 | 128...255 => ret = false,
+			_ => ()
+		}
+	}
+	ret
+}
+
+//TODO: these functions are common with challenge 16
+fn wrap_and_encrypt_27(input: &str, key: &CryptoData, iv: &CryptoData) -> CryptoData {
+	let prefix = "comment1=cooking%20MCs;userdata=";
+	let postfix = ";comment2=%20like%20a%20pound%20of%20bacon";
+	let mut s = String::from_str(prefix);
+
+	let escaped = String::from_str(input).replace(";", "%3B").replace("=", "%3D");
+	s.push_str(escaped.as_slice());
+	s.push_str(postfix);
+
+	let c = CryptoData::from_text(s.as_slice());
+	println!("orig hex: {}", c);
+	c.CBC_encrypt(key, iv)
+}
+
 // Recover the key from CBC with IV=Key
 pub fn chal27() {
-	//TODO
+	let text = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+	if !check_valid_ascii(text) {
+		println!("invalid input: {}", text);
+		return;
+	}
+	let key = CryptoData::from_text("SUPERTAJNE HESLO");
+	let enc = wrap_and_encrypt_27(text, &key, &key);
+	let zeros = CryptoData::zero(16);
+	let first = enc.block(0, 16);
+	let tampered = first.cat(&zeros).cat(&first).cat(&enc.slice(3 * 16, enc.len()));
+	let dec = tampered.CBC_decrypt(&key, &key);
+	if !check_valid_ascii(dec.to_text().as_slice()) {
+	//if !check_valid_ascii(&dec) {
+		println!("invalid input: {}", dec);
+	}
+	let plain = dec.block(0, 16).xor(&dec.block(2, 16));
+	println!("key/iv: {}", plain.to_text());
 }
 
 // Implement a SHA-1 keyed MAC
