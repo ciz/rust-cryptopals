@@ -1,6 +1,7 @@
 extern crate collections;
 
 use utils::cryptodata::{CryptoData};
+use utils::utils::{decrypt_and_find_CBC,flip_bits,wrap_and_encrypt_CBC};
 use self::collections::vec::Vec;
 use std::collections::HashMap;
 use std::iter::{range_step,range_inclusive};
@@ -268,40 +269,6 @@ pub fn chal15() {
 	}
 }
 
-fn wrap_and_encrypt(input: &str, key: &CryptoData, iv: &CryptoData) -> CryptoData {
-	let prefix = "comment1=cooking%20MCs;userdata=";
-	let postfix = ";comment2=%20like%20a%20pound%20of%20bacon";
-	let mut s = String::from_str(prefix);
-
-	let escaped = String::from_str(input).replace(";", "%3B").replace("=", "%3D");
-	s.push_str(escaped.as_slice());
-	s.push_str(postfix);
-
-	
-	let c = CryptoData::from_text(s.as_slice());
-	println!("orig hex: {}", c);
-	c.CBC_encrypt(key, iv)
-}
-
-fn decrypt_and_find(input: &CryptoData, key: &CryptoData, iv: &CryptoData) -> bool {
-	let decrypted = input.CBC_decrypt(key, iv);
-	let s = decrypted.to_text();
-	println!("decrypted: {}", s);
-	println!("decrypted: {}", decrypted.to_hex());
-	match s.find_str(";admin=true;") {
-		Some(_) => true,
-		_ => false
-	}
-}
-
-fn flip_bits(input: &CryptoData) -> CryptoData {
-	let mut vec = input.vec().clone();
-	vec[32] = vec[32] ^ 1;
-	vec[38] = vec[38] ^ 1;
-	vec[43] = vec[43] ^ 1;
-	CryptoData::from_vec(&vec)
-}
-
 // CBC bitflipping attacks
 pub fn chal16() {
 	let key = CryptoData::random(16);
@@ -309,12 +276,14 @@ pub fn chal16() {
 	let text = "aaaaaaaaaaaaaaaa:admin<true:aaaa";
 	let c = CryptoData::from_text(text);
 	println!("input: {}", c.to_hex());
-	let encrypted = wrap_and_encrypt(text, &key, &iv);
+	let encrypted = wrap_and_encrypt_CBC(text, &key, &iv);
 	println!("encrypted: {}", encrypted.to_hex());
-	let tampered = flip_bits(&encrypted);
+	let mut positions = Vec::new();
+	positions.push_all(&[32, 38, 43]);
+	let tampered = flip_bits(&encrypted, &positions);
 	println!("tampered:  {}", tampered.to_hex());
 
-	if decrypt_and_find(&tampered, &key, &iv) {
+	if decrypt_and_find_CBC(&tampered, &key, &iv) {
 		println!("FOUND");
 	} else {
 		println!("not found");

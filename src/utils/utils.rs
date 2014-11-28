@@ -87,3 +87,52 @@ pub fn guess_xor_key(enc: &CryptoData, keysize: uint) -> CryptoData {
 	}
 	key
 }
+
+fn wrap_and(input: &str) -> CryptoData {
+	let prefix = "comment1=cooking%20MCs;userdata=";
+	let postfix = ";comment2=%20like%20a%20pound%20of%20bacon";
+	let mut s = String::from_str(prefix);
+
+	let escaped = String::from_str(input).replace(";", "%3B").replace("=", "%3D");
+	s.push_str(escaped.as_slice());
+	s.push_str(postfix);
+
+	CryptoData::from_text(s.as_slice())
+}
+
+pub fn wrap_and_encrypt_CBC(input: &str, key: &CryptoData, iv: &CryptoData) -> CryptoData {
+	wrap_and(input).CBC_encrypt(key, iv)
+}
+
+pub fn wrap_and_encrypt_CTR(input: &str, key: &CryptoData, nonce: &CryptoData, counter: u64) -> CryptoData {
+	wrap_and(input).CTR_encrypt(key, nonce, counter)
+}
+
+fn and_find(decrypted: &CryptoData) -> bool {
+	let s = decrypted.to_text();
+	println!("decrypted: {}", s);
+	println!("decrypted: {}", decrypted.to_hex());
+	match s.find_str(";admin=true;") {
+		Some(_) => true,
+		_ => false
+	}
+}
+
+pub fn decrypt_and_find_CBC(input: &CryptoData, key: &CryptoData, iv: &CryptoData) -> bool {
+	let decrypted = input.CBC_decrypt(key, iv);
+	and_find(&decrypted)
+}
+
+pub fn decrypt_and_find_CTR(input: &CryptoData, key: &CryptoData, nonce: &CryptoData, counter: u64) -> bool {
+	let decrypted = input.CTR_decrypt(key, nonce, counter);
+	and_find(&decrypted)
+}
+
+//TODO: more general solution
+pub fn flip_bits(input: &CryptoData, positions: &Vec<uint>) -> CryptoData {
+	let mut vec = input.vec().clone();
+	for idx in positions.iter() {
+		vec[*idx] = vec[*idx] ^ 1;
+	}
+	CryptoData::from_vec(&vec)
+}

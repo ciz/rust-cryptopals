@@ -1,4 +1,5 @@
 use utils::cryptodata::{CryptoData};
+use utils::utils::{decrypt_and_find_CTR,flip_bits,wrap_and_encrypt_CBC,wrap_and_encrypt_CTR};
 use std::iter::{range_step,range_inclusive};
 
 // TODO: skip blocks before offset
@@ -58,41 +59,6 @@ pub fn chal25() {
 	println!("cracked: {}", cracked.to_text());
 }
 
-//TODO: these functions are common with challenge 16
-fn wrap_and_encrypt(input: &str, key: &CryptoData, nonce: &CryptoData, counter: u64) -> CryptoData {
-	let prefix = "comment1=cooking%20MCs;userdata=";
-	let postfix = ";comment2=%20like%20a%20pound%20of%20bacon";
-	let mut s = String::from_str(prefix);
-
-	let escaped = String::from_str(input).replace(";", "%3B").replace("=", "%3D");
-	println!("escaped {}", escaped);
-	s.push_str(escaped.as_slice());
-	s.push_str(postfix);
-
-	let c = CryptoData::from_text(s.as_slice());
-	println!("orig hex: {}", c);
-	c.CTR_encrypt(key, nonce, counter)
-}
-
-fn decrypt_and_find(input: &CryptoData, key: &CryptoData, nonce: &CryptoData, counter: u64) -> bool {
-	let decrypted = input.CTR_decrypt(key, nonce, counter);
-	let s = decrypted.to_text();
-	println!("decrypted: {}", s);
-	println!("decrypted: {}", decrypted.to_hex());
-	match s.find_str(";admin=true;") {
-		Some(_) => true,
-		_ => false
-	}
-}
-
-fn flip_bits(input: &CryptoData) -> CryptoData {
-	let mut vec = input.vec().clone();
-	vec[48] = vec[48] ^ 1;
-	vec[54] = vec[54] ^ 1;
-	vec[59] = vec[59] ^ 1;
-	CryptoData::from_vec(&vec)
-}
-
 // CTR bitflipping
 pub fn chal26() {
 	let key = CryptoData::random(16);
@@ -101,12 +67,14 @@ pub fn chal26() {
 	let text = "aaaaaaaaaaaaaaaa:admin<true:aaaa";
 	let c = CryptoData::from_text(text);
 	println!("input: {}", c.to_hex());
-	let encrypted = wrap_and_encrypt(text, &key, &nonce, counter);
+	let encrypted = wrap_and_encrypt_CTR(text, &key, &nonce, counter);
 	println!("encrypted: {}", encrypted.to_hex());
-	let tampered = flip_bits(&encrypted);
+	let mut positions = Vec::new();
+	positions.push_all(&[48, 54, 59]);
+	let tampered = flip_bits(&encrypted, &positions);
 	println!("tampered:  {}", tampered.to_hex());
 
-	if decrypt_and_find(&tampered, &key, &nonce, counter) {
+	if decrypt_and_find_CTR(&tampered, &key, &nonce, counter) {
 		println!("FOUND");
 	} else {
 		println!("not found");
@@ -127,21 +95,6 @@ fn check_valid_ascii(text: &str) -> bool {
 	ret
 }
 
-//TODO: these functions are common with challenge 16
-fn wrap_and_encrypt_27(input: &str, key: &CryptoData, iv: &CryptoData) -> CryptoData {
-	let prefix = "comment1=cooking%20MCs;userdata=";
-	let postfix = ";comment2=%20like%20a%20pound%20of%20bacon";
-	let mut s = String::from_str(prefix);
-
-	let escaped = String::from_str(input).replace(";", "%3B").replace("=", "%3D");
-	s.push_str(escaped.as_slice());
-	s.push_str(postfix);
-
-	let c = CryptoData::from_text(s.as_slice());
-	println!("orig hex: {}", c);
-	c.CBC_encrypt(key, iv)
-}
-
 // Recover the key from CBC with IV=Key
 pub fn chal27() {
 	let text = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -150,7 +103,7 @@ pub fn chal27() {
 		return;
 	}
 	let key = CryptoData::from_text("SUPERTAJNE HESLO");
-	let enc = wrap_and_encrypt_27(text, &key, &key);
+	let enc = wrap_and_encrypt_CBC(text, &key, &key);
 	let zeros = CryptoData::zero(16);
 	let first = enc.block(0, 16);
 	let tampered = first.cat(&zeros).cat(&first).cat(&enc.slice(3 * 16, enc.len()));
