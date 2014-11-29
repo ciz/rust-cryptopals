@@ -1,6 +1,7 @@
 extern crate serialize;
 extern crate collections;
 extern crate openssl;
+extern crate "rust-crypto" as rust_crypto;
 
 use std::char;
 use std::fmt;
@@ -300,9 +301,12 @@ impl CryptoData {
 		use std::io::MemWriter;
 		let mut result = CryptoData::new();
 		let mut w = MemWriter::new();
-		let mut le_ctr = counter.to_le();
-		w.write_le_u64(le_ctr);
-		let ctr_cd = CryptoData::from_vec(&w.unwrap());
+		//TODO: this used to work on older rustc
+		//let mut le_ctr = counter.to_le();
+		let mut le_ctr = counter;
+		//w.write_le_u64(le_ctr);
+		w.write_le_u64(counter);
+		let ctr_cd = CryptoData::from_vec(&w.clone().into_inner());
 		let mut nonce_ctr = nonce.cat(&ctr_cd);
 
 		for idx in range_step (0, self.data.len(), 16) {
@@ -318,10 +322,10 @@ impl CryptoData {
 			let xored = block.xor(&encrypted.cut(block.len()));
 			result = result.cat(&xored);
 
-			let mut w = MemWriter::new();
 			le_ctr += 1;
 			w.write_le_u64(le_ctr);
-			let new_ctr = CryptoData::from_vec(&w.unwrap());
+			w.write_le_u64(counter);
+			let new_ctr = CryptoData::from_vec(&w.clone().into_inner());
 			nonce_ctr = nonce.cat(&new_ctr);
 		}
 		result
