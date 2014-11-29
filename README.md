@@ -2,7 +2,8 @@ rust-cryptopals
 ===============
 
 Some of the Matasano crypto challenges (http://cryptopals.com/) implemented in Rust.
-Completed are sets 1 and 2.
+Completed sets: 1, 2
+In progress sets: 3, 4
 
 The code was successfully compiled using:
-rustc 0.13.0-nightly (5745e4195 2014-11-12 22:57:16 +0000)
+rustc 0.13.0-nightly (fac5a0767 2014-11-26 22:37:06 +0000)
