@@ -9,3 +9,10 @@ git = "https://github.com/sfackler/rust-openssl"
 
 [dependencies.rust-crypto]
 git = "https://github.com/DaGenix/rust-crypto"
+
+[dependencies.rustful]
+git = "https://github.com/Ogeon/rustful"
+
+[[bin]]
+name = "webs"
+path = "src/webs/main.rs"
