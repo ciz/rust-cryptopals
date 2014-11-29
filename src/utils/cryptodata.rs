@@ -13,6 +13,7 @@ use self::collections::vec::Vec;
 use self::serialize::base64::{ToBase64,FromBase64,STANDARD};
 use self::serialize::hex::{FromHex,ToHex};
 use self::openssl::crypto::symm;
+use self::rust_crypto::sha1::{Sha1};
 
 #[deriving (Hash,PartialEq,Eq)]
 pub struct CryptoData {
@@ -365,5 +366,17 @@ impl CryptoData {
 			}
 		}
 		dist
+	}
+
+	pub fn SHA1_mac_prefix(&self, key: &CryptoData) -> CryptoData {
+		use self::rust_crypto::digest::Digest;
+		use self::rust_crypto::sha1::Sha1;
+		let mut digest: [u8, ..20] = [0, ..20];
+		let to_mac = key.cat(self);
+
+		let mut sha = Sha1::new();
+		sha.input(to_mac.vec().as_slice());
+		sha.result(&mut digest);
+		CryptoData::from_vec(&digest.to_vec())
 	}
 }

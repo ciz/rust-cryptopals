@@ -41,4 +41,5 @@ fn main() {
 	chal26();
 	chal27();
 */
+	chal28();
 }

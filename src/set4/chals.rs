@@ -118,7 +118,11 @@ pub fn chal27() {
 
 // Implement a SHA-1 keyed MAC
 pub fn chal28() {
-	//TODO
+	let text = CryptoData::from_text("lalala a nanana a sasasa");
+	let key = CryptoData::from_text("koala");
+	let digest = text.SHA1_mac_prefix(&key);
+	println!("{} | {}", key.to_text(), text.to_text());
+	println!("{} | {} -> {}", key, text, digest);
 }
 
 // Break a SHA-1 keyed MAC using length extension
