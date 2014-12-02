@@ -13,7 +13,6 @@ use self::collections::vec::Vec;
 use self::serialize::base64::{ToBase64,FromBase64,STANDARD};
 use self::serialize::hex::{FromHex,ToHex};
 use self::openssl::crypto::symm;
-use self::rust_crypto::sha1::{Sha1};
 
 #[deriving (Hash,PartialEq,Eq)]
 pub struct CryptoData {

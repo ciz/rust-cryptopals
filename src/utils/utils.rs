@@ -42,13 +42,8 @@ fn eng_char_freq(c: char) -> f32 {
 }
 
 fn score_bytes(data: &CryptoData) -> f32 {
-	let mut score: f32;
-	score = 0.0;
-	let mut it = data.vec().iter();
-	for c in it {
-		score += eng_char_freq(char::to_uppercase(*c as char));
-	}
-	score
+	let it = data.vec().iter();
+	it.fold(0.0, |x, y| x + eng_char_freq(UnicodeChar::to_uppercase(*y as char)))
 }
 
 pub fn guess_xor_byte(xored: &CryptoData) -> (CryptoData, CryptoData, f32) {
@@ -57,9 +52,8 @@ pub fn guess_xor_byte(xored: &CryptoData) -> (CryptoData, CryptoData, f32) {
 	let mut best_score: f32 = 0.0;
 	let mut best_byte = CryptoData::new();
 
-	for c in range_inclusive(0u8, 255) {
-		let bytestr = String::from_char(1, c as char);
-		let byte = CryptoData::from_text(bytestr.as_slice());
+	for b in range_inclusive(0u8, 255) {
+		let byte = CryptoData::from_byte(b);
 		let res = xored.xor(&byte);
 		let score = score_bytes(&res);
 

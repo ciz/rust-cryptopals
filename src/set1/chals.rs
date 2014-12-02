@@ -1,5 +1,7 @@
 extern crate openssl;
 
+use std::io::File;
+use std::io::BufferedReader;
 use utils::utils::{guess_xor_byte, guess_xor_key};
 use utils::cryptodata::{CryptoData};
 
@@ -42,9 +44,6 @@ pub fn chal3() {
 
 // Detect single-character XOR
 pub fn chal4() {
-	use std::io::BufferedReader;
-	use std::io::File;
-
 	let mut best = CryptoData::new();
 	let mut best_score: f32 = 0.0;
 
@@ -77,14 +76,11 @@ I go crazy when I hear a cymbal");
 
 	let res = data.xor(&key);
 	println!("hex: {}", res.to_hex());
-	println!("text: {}", res.to_text());
+	//println!("text: {}", res.to_text());
 }
 
 // Break repeating-key XOR
 pub fn chal6() {
-	//FIXME: this code is ugly and not checking anything
-	use std::io::File;
-
 	let fname = "src/set1/6.txt";
 	let path = Path::new(fname);
 	let contents = File::open(&path).read_to_string();
@@ -99,39 +95,28 @@ pub fn chal6() {
 		let mut sum = 0;
 		let count = enc.len() / keysize - 1;
 		for i in range(0, count) {
-			let mut block_vec = Vec::new();
-			let first_slice = enc.vec().as_slice().slice(i * keysize, (i+1) * keysize);
-			block_vec.push_all(first_slice);
-			let first_block = CryptoData::from_vec(&block_vec);
-
-			let mut block_vec = Vec::new();
-			let second_slice = enc.vec().as_slice().slice((i+1)*keysize, (i+2) * keysize);
-			block_vec.push_all(second_slice);
-			let second_block = CryptoData::from_vec(&block_vec);
-
+			let first_block = enc.slice(i * keysize, (i+1) * keysize);
+			let second_block = enc.slice((i+1) * keysize, (i+2) * keysize);
 			let dist = first_block.hamming_distance(&second_block);
 			sum += dist;
 		}
 
 		let my_dist = sum / count / keysize;
-		//println!("keysize: {}, dist: {}", keysize, my_dist);
 		if my_dist < best_dist {
 			size = keysize;
 			best_dist = my_dist;
 		}
 	}
-	println!("best keysize: {}", size);
 
+	println!("best keysize: {}", size);
 	let key = guess_xor_key(&enc, size);
 	let dec = enc.xor(&key);
-	//println!("decrypted: {}", dec);
 	println!("key: {}", key.to_text());
-	println!("decrypted: {}", dec.to_text());
+	println!("chal 6 decrypted: {}", dec.to_text());
 }
 
 // AES in ECB mode
 pub fn chal7() {
-	use std::io::File;
 	let key = CryptoData::from_text("YELLOW SUBMARINE");
 
 	let fname = "src/set1/7.txt";
@@ -141,13 +126,11 @@ pub fn chal7() {
 
 	let encrypted = CryptoData::from_base64(base64_str.as_slice());
 	let decrypted = encrypted.ECB_decrypt(&key);
-	println!("text: {}", decrypted.to_text());
+	println!("chal 7 text: {}", decrypted.to_text());
 }
 
 // Detect AES in ECB mode
 pub fn chal8() {
-	use std::io::BufferedReader;
-	use std::io::File;
 	use std::collections::HashSet;
 	use std::collections::HashMap;
 
@@ -180,7 +163,7 @@ pub fn chal8() {
 	}
 
 	for (line, dups) in dup_blocks.iter() {
-		println!("dups: {}, text: {}", dups, line);
+		println!("chal 8 dups: {}, text: {}", dups, line);
 	}
 }
 

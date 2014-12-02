@@ -11,31 +11,44 @@ use self::url::Url;
 
 use utils::cryptodata::{CryptoData};
 use utils::utils::{decrypt_and_find_CTR,flip_bits,wrap_and_encrypt_CBC,wrap_and_encrypt_CTR};
-use std::iter::{range_step,range_inclusive};
+use std::iter::{range_inclusive};
 
 // TODO: skip blocks before offset
 fn edit_ctr(ciphertext: &CryptoData, key: &CryptoData, nonce: &CryptoData, counter: u64, offset: uint, newtext: &CryptoData) -> CryptoData {
 	assert!(offset < ciphertext.len());
 	let plain = ciphertext.CTR_decrypt(key, nonce, counter);
+/*
+	let block = offset / 16;
+	let ncounter = counter + block as u64;
+	let cut_cipher = ciphertext.slice(block * 16, ciphertext.len());
+	let plain = cut_cipher.CTR_decrypt(key, nonce, ncounter);
+*/
 	let notail = plain.cut(offset).cat(newtext);
 	let modified = if plain.len() > offset + newtext.len() {
-		let rest = plain.slice(offset + newtext.len(), plain.len());
-		notail.cat(&rest)
+			let rest = plain.slice(offset + newtext.len(), plain.len());
+			notail.cat(&rest)
 		} else {
 			notail
 		};
 	modified.CTR_encrypt(key, nonce, counter)
+/*
+	let skipped = ciphertext.cut(block * 16);
+	skipped.cat(&modified.CTR_encrypt(key, nonce, counter))
+*/
 }
 
 fn crack_edit_ctr(ciphertext: &CryptoData, key: &CryptoData, nonce: &CryptoData, counter: u64) -> CryptoData {
 	let mut result = CryptoData::new();
 	for idx in range(0, ciphertext.len()) {
+		println!("idx: {}", idx);
 		for b in range_inclusive(0u8, 255) {
+			println!("b: {}", b);
 			let byte = CryptoData::from_byte(b);
 			let mod_enc = edit_ctr(ciphertext, key, nonce, counter, idx, &byte);
 			if mod_enc == *ciphertext {
-				println!("guessed byte: {}", byte);
 				result = result.cat(&byte);
+				println!("guessed so far: {}", result.to_text());
+				break;
 			}
 		}
 	}
@@ -57,10 +70,10 @@ pub fn chal25() {
 	let contents = File::open(&path).read_to_string();
 	let base64_str = match contents { Ok(x) => x, Err(e) => panic!(e) };
 
-	//let key_ecb = CryptoData::from_text("YELLOW SUBMARINE");
-	//let encrypted = CryptoData::from_base64(base64_str.as_slice());
+	let key_ecb = CryptoData::from_text("YELLOW SUBMARINE");
+	let encrypted = CryptoData::from_base64(base64_str.as_slice());
 	//let text = encrypted.ECB_decrypt(&key_ecb);
-	let text = CryptoData::from_text("abcdefghijklmnopqrstuvwxyz");
+	let text = CryptoData::from_text("abcdefghijklmnopqrstuvwxyzQWFPGJLUY:ARSTDHNENEIIZXCVBKM1234567890[]['o'o,.,/,`");
 	let enc = text.CTR_encrypt(&key_ctr, &nonce, counter);
 	let cracked = crack_edit_ctr(&enc, &key_ctr, &nonce, counter);
 

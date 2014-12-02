@@ -40,7 +40,6 @@ fn encryption_oracle(input: CryptoData) -> CryptoData {
 	let suffix_size = rng.gen_range(5u, 10);
 	let prefix = CryptoData::random(prefix_size);
 	let suffix = CryptoData::random(suffix_size);
-
 	let key = CryptoData::random(16);
 
 	// add random bytes to the beginning and the end
@@ -110,7 +109,6 @@ fn create_table(input: &CryptoData, key: &CryptoData, blocksize: uint) -> HashMa
 		let first_block = CryptoData::from_vec(&block_slice.to_vec());
 
 		byte_block.insert(first_block.clone(), b);
-		//println!("xkey: {} xval: {}", first_block, b);
 	}
 	byte_block
 }
@@ -227,8 +225,7 @@ YnkK";
 	let prefix_full_blocks = prefix.len() / blocksize;
 	let remain_str = String::from_char(blocksize - prefix_remain - 1, 'a');
 
-	let cut_prefix_vec = prefix.vec().as_slice().slice(prefix_full_blocks, prefix_full_blocks + prefix_remain);
-	let cut_prefix = CryptoData::from_vec(&cut_prefix_vec.to_vec());
+	let cut_prefix = prefix.slice(prefix_full_blocks, prefix_full_blocks + prefix_remain);
 	let short_block = cut_prefix.cat(&CryptoData::from_text(remain_str.as_slice()));
 
 	let table = create_table(&short_block, &key, blocksize);
@@ -238,10 +235,7 @@ YnkK";
 	while secvec.len() > 0 {
 		let cat_block = short_block.cat(&CryptoData::from_vec(&secvec));
 		let short_enc = oracle_12(&cat_block, &key);
-
-		let block_slice = short_enc.vec().as_slice().slice(0, blocksize);
-		let first_block = CryptoData::from_vec(&block_slice.to_vec());
-
+		let first_block = short_enc.slice(0, blocksize);
 		let byte = table.get(&first_block).unwrap();
 		res.push(*byte);
 		secvec.remove(0);
