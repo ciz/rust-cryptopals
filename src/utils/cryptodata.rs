@@ -73,6 +73,11 @@ impl CryptoData {
 		CryptoData { data: vec.clone() }
 	}
 
+	pub fn from_byte(byte: u8) -> CryptoData {
+		let vec = vec![byte];
+		CryptoData { data: vec }
+	}
+
 	pub fn from_base64(base64_str: &str) -> CryptoData {
 		//TODO: handle errors
 		let byte_str = base64_str.from_base64().unwrap();

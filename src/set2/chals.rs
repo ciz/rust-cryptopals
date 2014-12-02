@@ -24,11 +24,7 @@ pub fn chal10() {
 	let contents = File::open(&path).read_to_string();
 	let base64_str = match contents { Ok(x) => x, Err(e) => panic!(e) };
 
-	let mut zero_vec: Vec<u8> = Vec::new();
-	for _ in range(0i, 16) {
-		zero_vec.push(0u8);
-	}
-	let iv = CryptoData::from_vec(&zero_vec);
+	let iv = CryptoData::zero(16);
 	let encrypted = CryptoData::from_base64(base64_str.as_slice());
 	let decrypted = encrypted.CBC_decrypt(&key, &iv);
 	println!("text: {}", decrypted.to_text());
@@ -106,9 +102,8 @@ fn create_table(input: &CryptoData, key: &CryptoData, blocksize: uint) -> HashMa
 	let mut byte_block: HashMap<CryptoData, u8> = HashMap::new();
 
 	for b in range_inclusive(0u8, 255) {
-		let mut byte_vec = Vec::new();
-		byte_vec.push(b);
-		let cated = input.cat(&CryptoData::from_vec(&byte_vec));
+		let byte = CryptoData::from_byte(b);
+		let cated = input.cat(&byte);
 		let output = oracle_12(&cated, key);
 
 		let block_slice = output.vec().as_slice().slice(0, blocksize);
@@ -184,19 +179,15 @@ fn attack_profile(key: &CryptoData) -> CryptoData {
 	let input1 = "a@b";
 	let profile1 = profile_for(input1);
 	let enc_profile1 = CryptoData::from_text(profile1.as_slice()).ECB_encrypt(key);
-	let block1 = enc_profile1.vec().as_slice().slice(0, 16);
+	let block1 = enc_profile1.slice(0, 16);
 
 	// force "admin" at the beginning of the second block
 	let input2 = "aaaaaaaaaaaaaaaaadmin";
 	let profile2 = profile_for(input2);
 	let enc_profile2 = CryptoData::from_text(profile2.as_slice()).ECB_encrypt(key);
-	let block2 = enc_profile2.vec().as_slice().slice(16, 32);
+	let block2 = enc_profile2.slice(16, 32);
 
-	let mut cat_blocks = Vec::new();
-	cat_blocks.push_all(block1);
-	cat_blocks.push_all(block2);
-
-	CryptoData::from_vec(&cat_blocks)
+	block1.cat(&block2)
 }
 
 // ECB cut-and-paste

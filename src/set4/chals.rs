@@ -7,10 +7,6 @@ extern crate collections;
 
 use self::http::client::RequestWriter;
 use self::http::method::Get;
-use self::http::headers::HeaderEnum;
-use std::os;
-use std::str;
-use std::io::println;
 use self::url::Url;
 
 use utils::cryptodata::{CryptoData};
@@ -35,9 +31,7 @@ fn crack_edit_ctr(ciphertext: &CryptoData, key: &CryptoData, nonce: &CryptoData,
 	let mut result = CryptoData::new();
 	for idx in range(0, ciphertext.len()) {
 		for b in range_inclusive(0u8, 255) {
-			let mut vec = Vec::new();
-			vec.push(b);
-			let byte = CryptoData::from_vec(&vec);
+			let byte = CryptoData::from_byte(b);
 			let mod_enc = edit_ctr(ciphertext, key, nonce, counter, idx, &byte);
 			if mod_enc == *ciphertext {
 				println!("guessed byte: {}", byte);
@@ -59,13 +53,13 @@ pub fn chal25() {
 	let counter = 100u64;
 
 	let fname = "src/set4/25.txt";
-	let key_ecb = CryptoData::from_text("YELLOW SUBMARINE");
 	let path = Path::new(fname);
 	let contents = File::open(&path).read_to_string();
 	let base64_str = match contents { Ok(x) => x, Err(e) => panic!(e) };
 
-	let encrypted = CryptoData::from_base64(base64_str.as_slice());
-//	let text = encrypted.ECB_decrypt(&key_ecb);
+	//let key_ecb = CryptoData::from_text("YELLOW SUBMARINE");
+	//let encrypted = CryptoData::from_base64(base64_str.as_slice());
+	//let text = encrypted.ECB_decrypt(&key_ecb);
 	let text = CryptoData::from_text("abcdefghijklmnopqrstuvwxyz");
 	let enc = text.CTR_encrypt(&key_ctr, &nonce, counter);
 	let cracked = crack_edit_ctr(&enc, &key_ctr, &nonce, counter);
@@ -156,6 +150,7 @@ pub fn chal30() {
 	//TODO
 }
 
+//TODO: terminate on code 200
 fn process_request(url: &str) {
     let url = Url::parse(url).ok().expect("Invalid URL :-(");
     let request: RequestWriter = RequestWriter::new(Get, url).unwrap();
@@ -169,34 +164,27 @@ fn process_request(url: &str) {
 fn guess_hmac(url: &str, file: &str) -> String {
 	use self::time::{precise_time_ns};
 	use self::collections::vec::Vec;
+
 	let mut times: [u64, ..256] = [0, ..256];
 	let mut res = Vec::new();
 
 	for position in range(0, 20) {
+		//TODO: go back a step if the elapsed time doesn't grow enough
 		for byte in range_inclusive(0u8, 255) {
-			let mut vec = Vec::new();
-			vec.push_all(res.as_slice());
-			let mut sig = CryptoData::from_vec(&vec).to_hex();
-			vec = Vec::new();
-			vec.push(byte);
-			let hex = CryptoData::from_vec(&vec).to_hex();
+			let mut sig = CryptoData::from_vec(&res).to_hex();
+			let hex = CryptoData::from_byte(byte).to_hex();
 			sig.push_str(hex.as_slice());
-			vec = Vec::new();
-			for _ in range(0u, 19 - position) {
-				vec.push(0u8);
-			}
-			let postfix = CryptoData::from_vec(&vec).to_hex();
+			let postfix = CryptoData::zero(19 - position).to_hex();
 			sig.push_str(postfix.as_slice());
-			//println!("sig: {}", sig);
-			let mut my_url = format!("{}?file={}&signature={}", url, file, sig);
+			let my_url = format!("{}?file={}&signature={}", url, file, sig);
 
 			let start_time = precise_time_ns();
-			for _ in range(0u, 5) {
+			for _ in range(0u, 10) {
 				process_request(my_url.as_slice());
 			}
 			let end_time = precise_time_ns();
 			let duration = end_time - start_time;
-			println!("{} duration: {}", hex.as_slice(), duration);
+			//println!("{} duration: {}", hex.as_slice(), duration);
 			times[byte as uint] = duration;
 		}
 		let mut max = 0u64;
@@ -206,14 +194,8 @@ fn guess_hmac(url: &str, file: &str) -> String {
 			if times[i] > max {
 				max = times[i];
 				best = i;
-				let mut vec = Vec::new();
-				vec.push(best as u8);
-				let hex = CryptoData::from_vec(&vec).to_hex();
-				//println!("new best: {} -> {}", hex, max);
 			}
 		}
-		let mut vec = Vec::new();
-		vec.push(best as u8);
 		res.push(best as u8);
 		let hex = CryptoData::from_vec(&res);
 		println!("guessed so far: {}", hex);
