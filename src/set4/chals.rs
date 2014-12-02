@@ -1,3 +1,18 @@
+//# ! [allow(unknown_features)]
+
+extern crate http;
+extern crate url;
+extern crate time;
+extern crate collections;
+
+use self::http::client::RequestWriter;
+use self::http::method::Get;
+use self::http::headers::HeaderEnum;
+use std::os;
+use std::str;
+use std::io::println;
+use self::url::Url;
+
 use utils::cryptodata::{CryptoData};
 use utils::utils::{decrypt_and_find_CTR,flip_bits,wrap_and_encrypt_CBC,wrap_and_encrypt_CTR};
 use std::iter::{range_step,range_inclusive};
@@ -128,6 +143,12 @@ pub fn chal28() {
 // Break a SHA-1 keyed MAC using length extension
 pub fn chal29() {
 	//TODO
+/*
+	let msg = "comment1=cooking%20MCs;userdata=foo;comment2=%20like%20a%20pound%20of%20bacon";
+	let prefix = CryptoData::from_text(msg);
+	let padding = prefix.len();
+	let postfix = ";admin=true";
+*/
 }
 
 // Break an MD4 keyed MAC using length extension
@@ -135,13 +156,85 @@ pub fn chal30() {
 	//TODO
 }
 
+fn process_request(url: &str) {
+    let url = Url::parse(url).ok().expect("Invalid URL :-(");
+    let request: RequestWriter = RequestWriter::new(Get, url).unwrap();
+
+    let response = match request.read_response() {
+        Ok(response) => response,
+        Err(_request) => panic!("This example can progress no further with no response :-("),
+    };
+}
+
+fn guess_hmac(url: &str, file: &str) -> String {
+	use self::time::{precise_time_ns};
+	use self::collections::vec::Vec;
+	let mut times: [u64, ..256] = [0, ..256];
+	let mut res = Vec::new();
+
+	for position in range(0, 20) {
+		for byte in range_inclusive(0u8, 255) {
+			let mut vec = Vec::new();
+			vec.push_all(res.as_slice());
+			let mut sig = CryptoData::from_vec(&vec).to_hex();
+			vec = Vec::new();
+			vec.push(byte);
+			let hex = CryptoData::from_vec(&vec).to_hex();
+			sig.push_str(hex.as_slice());
+			vec = Vec::new();
+			for _ in range(0u, 19 - position) {
+				vec.push(0u8);
+			}
+			let postfix = CryptoData::from_vec(&vec).to_hex();
+			sig.push_str(postfix.as_slice());
+			//println!("sig: {}", sig);
+			let mut my_url = format!("{}?file={}&signature={}", url, file, sig);
+
+			let start_time = precise_time_ns();
+			for _ in range(0u, 5) {
+				process_request(my_url.as_slice());
+			}
+			let end_time = precise_time_ns();
+			let duration = end_time - start_time;
+			println!("{} duration: {}", hex.as_slice(), duration);
+			times[byte as uint] = duration;
+		}
+		let mut max = 0u64;
+		let mut best = 0;
+		//let best = times.iter().max_by(|x| *x)
+		for i in range_inclusive(0,255) {
+			if times[i] > max {
+				max = times[i];
+				best = i;
+				let mut vec = Vec::new();
+				vec.push(best as u8);
+				let hex = CryptoData::from_vec(&vec).to_hex();
+				//println!("new best: {} -> {}", hex, max);
+			}
+		}
+		let mut vec = Vec::new();
+		vec.push(best as u8);
+		res.push(best as u8);
+		let hex = CryptoData::from_vec(&res);
+		println!("guessed so far: {}", hex);
+		println!("it should be  : 8e9c16a922d10c647979bffb9fe655c6bdca030c");
+	}
+
+	CryptoData::from_vec(&res).to_hex()
+}
+
 // Implement and break HMAC-SHA1 with an artificial timing leak
 pub fn chal31() {
-	//TODO
+	let file = "secret";
+	let url = "http://localhost:8080";
+	let hmac = guess_hmac(url, file);
+	println!("hmac for file {} is {}", file, hmac);
+	println!("should be 8e9c16a922d10c647979bffb9fe655c6bdca030c");
 }
 
 // Break HMAC-SHA1 with a slightly less artificial timing leak
 pub fn chal32() {
-	//TODO
+	// same as chal31
+	chal31();
 }
 

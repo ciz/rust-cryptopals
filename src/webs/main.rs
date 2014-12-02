@@ -42,19 +42,26 @@ fn say_hello(request: Request, response: &mut Response) {
 	let macres = hmac.result();
 	let vec: Vec<u8> = macres.code().iter().map(|x| *x).collect();
 	let comp_sig = vec.as_slice().to_hex();
+	//println!("get: {}\nmy : {}", sig, comp_sig);
 
 	let mut timer = Timer::new().unwrap();
 	let mut ok = true;
 
+	//TODO: should compare raw bytes
 	// compare MACs byte by byte with early exit
 	if sig.len() != comp_sig.len() {
+		println!("invalid length {} != {}", sig.len(), comp_sig.len());
 		response.status = Status::InternalServerError;
 	} else {
 		for (a, b) in sig.as_bytes().iter().zip(comp_sig.as_bytes().iter()) {
 			if *a != *b {
 				ok = false;
+				break;
 			}
-			timer.sleep(Duration::milliseconds(50));
+			// challenge 31
+			//timer.sleep(Duration::milliseconds(5));
+			// challenge 32
+			timer.sleep(Duration::milliseconds(5));
 		}
 
 		if !ok {
