@@ -262,9 +262,10 @@ impl CryptoData {
 		let mut c = symm::Crypter::new(Cipher::aes_128_ecb(), Mode::Decrypt, key.vec(), Some(&vec![])).unwrap();
 		// need to disable padding, otherwise there's an additional padding block at the end
 		c.pad(false);
-		let mut r: Vec<u8> = vec![];
+		let block_size = Cipher::aes_128_ecb().block_size();
+		let mut r: Vec<u8> = vec![0; self.data.len() + block_size];
 		let _ = c.update(self.vec(), &mut r);
-		let mut rest: Vec<u8> = vec![]; 
+		let mut rest: Vec<u8> = vec![0; block_size]; 
 		let _ = c.finalize(&mut rest);
 		r.extend(rest.into_iter());
 		CryptoData { data: r }
