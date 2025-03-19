@@ -13,6 +13,7 @@ use openssl::symm::{encrypt, Crypter, Mode, Cipher};
 
 //use base64::prelude::*;
 //use base64::{engine::general_purpose, Engine as _};
+use base64::Engine;
 
 #[derive (Hash,PartialEq,Eq)]
 pub struct CryptoData {
@@ -37,14 +38,14 @@ impl CryptoData {
 		//let mut rng = rand::rng();
 		//let mut rng = rand::task_rng();
 
-		let mut rng = rand::thread_rng();
+		let mut rng = rand::rng();
 		//let n: u32 = rng.gen_range(0..100);
 	
 		//TODO: seems to be impossible to use array and fill_bytes,
 		// because the size isn't known at compile time
 		let mut bytes = Vec::new();
 		for _ in 0..size {
-			let x: u8 = rng.gen();
+			let x: u8 = rng.random();
 			bytes.push(x);
 		}
 
@@ -90,7 +91,13 @@ impl CryptoData {
 		//let byte_str = BASE64_STANDARD.decode(base64_str);
 		//let byte_str = general_purpose::STANDARD.decode(base64_str);
 		//println!("base64 str: {}", base64_str);
-		let byte_str = base64::decode(base64_str).expect("invalid byte");
+		
+		let byte_str = base64::prelude::BASE64_STANDARD
+					.decode(base64_str)
+					.expect("Failed to decode base64 data.");
+
+		// TODO: warning: use of deprecated function `base64::decode`: Use Engine::decode
+		//let byte_str = base64::decode(base64_str).expect("invalid byte");
 		//= base64_str.from_base64().unwrap();
 		CryptoData { data: byte_str.clone() }
 	}
@@ -98,7 +105,9 @@ impl CryptoData {
 	pub fn to_base64(&self) -> String {
 		//BASE64_STANDARD.encode(self.data);
 //		general_purpose::STANDARD.encode(&self.data)
-		base64::encode(&self.data)
+
+		base64::prelude::BASE64_STANDARD.encode(&self.data)
+		//base64::encode(&self.data)
 		//self.data.as_slice().to_base64(STANDARD)
 	}
 
@@ -322,14 +331,8 @@ impl CryptoData {
 	}
 
 	pub fn CTR_encrypt(&self, key: &CryptoData, nonce: &CryptoData, counter: u64) -> CryptoData {
-//		use std::io::MemWriter;
 		let mut result = CryptoData::new();
-//		let mut w = MemWriter::new();
-		//TODO: this used to work on older rustc
-		//let mut le_ctr = counter.to_le();
 		let mut le_ctr = counter;
-		//w.write_le_u64(le_ctr);
-//		w.write_le_u64(counter);
 
 		let mut le = vec![];
 		le.write_u64::<LittleEndian>(counter).unwrap();
