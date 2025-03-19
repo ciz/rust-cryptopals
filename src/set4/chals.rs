@@ -1,20 +1,18 @@
 //# ! [allow(unknown_features)]
 
-extern crate http;
-extern crate url;
-extern crate time;
-extern crate collections;
+use http::client::RequestWriter;
+use http::method::Get;
+use url::Url;
 
-use self::http::client::RequestWriter;
-use self::http::method::Get;
-use self::url::Url;
+//use time::{precise_time_ns};
+use std::fs::read_to_string;
+use std::time::{Duration, Instant};
 
 use utils::cryptodata::{CryptoData};
 use utils::utils::{decrypt_and_find_CTR,flip_bits,wrap_and_encrypt_CBC,wrap_and_encrypt_CTR};
-use std::iter::{range_inclusive};
 
 // TODO: skip blocks before offset
-fn edit_ctr(ciphertext: &CryptoData, key: &CryptoData, nonce: &CryptoData, counter: u64, offset: uint, newtext: &CryptoData) -> CryptoData {
+fn edit_ctr(ciphertext: &CryptoData, key: &CryptoData, nonce: &CryptoData, counter: u64, offset: usize, newtext: &CryptoData) -> CryptoData {
 	assert!(offset < ciphertext.len());
 	let plain = ciphertext.CTR_decrypt(key, nonce, counter);
 /*
@@ -39,9 +37,9 @@ fn edit_ctr(ciphertext: &CryptoData, key: &CryptoData, nonce: &CryptoData, count
 
 fn crack_edit_ctr(ciphertext: &CryptoData, key: &CryptoData, nonce: &CryptoData, counter: u64) -> CryptoData {
 	let mut result = CryptoData::new();
-	for idx in range(0, ciphertext.len()) {
+	for idx in 0..ciphertext.len() {
 		println!("idx: {}", idx);
-		for b in range_inclusive(0u8, 255) {
+		for b in 0u8..=255 {
 			println!("b: {}", b);
 			let byte = CryptoData::from_byte(b);
 			let mod_enc = edit_ctr(ciphertext, key, nonce, counter, idx, &byte);
@@ -59,19 +57,17 @@ fn crack_edit_ctr(ciphertext: &CryptoData, key: &CryptoData, nonce: &CryptoData,
 pub fn chal25() {
 	//TODO: this challenge runs *really* slowly!
 	//the CryptoData implementation should be checked
-	use std::io::File;
 
 	let key_ctr = CryptoData::random(16);
 	let nonce = CryptoData::random(8);
 	let counter = 100u64;
 
 	let fname = "src/set4/25.txt";
-	let path = Path::new(fname);
-	let contents = File::open(&path).read_to_string();
-	let base64_str = match contents { Ok(x) => x, Err(e) => panic!(e) };
+	let contents = read_to_string(fname);
+	let base64_str = match contents { Ok(x) => x, Err(e) => panic!("{}", e) };
 
 	let key_ecb = CryptoData::from_text("YELLOW SUBMARINE");
-	let encrypted = CryptoData::from_base64(base64_str.as_slice());
+	let encrypted = CryptoData::from_base64(&base64_str);
 	//let text = encrypted.ECB_decrypt(&key_ecb);
 	let text = CryptoData::from_text("abcdefghijklmnopqrstuvwxyzQWFPGJLUY:ARSTDHNENEIIZXCVBKM1234567890[]['o'o,.,/,`");
 	let enc = text.CTR_encrypt(&key_ctr, &nonce, counter);
@@ -92,7 +88,7 @@ pub fn chal26() {
 	let encrypted = wrap_and_encrypt_CTR(text, &key, &nonce, counter);
 	println!("encrypted: {}", encrypted.to_hex());
 	let mut positions = Vec::new();
-	positions.push_all(&[48, 54, 59]);
+	positions.append(&mut vec![48, 54, 59]);
 	let tampered = flip_bits(&encrypted, &positions);
 	println!("tampered:  {}", tampered.to_hex());
 
@@ -110,7 +106,7 @@ fn check_valid_ascii(text: &str) -> bool {
 	//for byte in text.vec().iter() {
 		//match *byte {
 		match byte as u8 {
-			0...31 | 128...255 => ret = false,
+			0..=31 | 128..=255 => ret = false,
 			_ => ()
 		}
 	}
@@ -130,7 +126,7 @@ pub fn chal27() {
 	let first = enc.block(0, 16);
 	let tampered = first.cat(&zeros).cat(&first).cat(&enc.slice(3 * 16, enc.len()));
 	let dec = tampered.CBC_decrypt(&key, &key);
-	if !check_valid_ascii(dec.to_text().as_slice()) {
+	if !check_valid_ascii(&dec.to_text()) {
 	//if !check_valid_ascii(&dec) {
 		println!("invalid input: {}", dec);
 	}
@@ -175,35 +171,32 @@ fn process_request(url: &str) {
 }
 
 fn guess_hmac(url: &str, file: &str) -> String {
-	use self::time::{precise_time_ns};
-	use self::collections::vec::Vec;
-
-	let mut times: [u64, ..256] = [0, ..256];
+	let mut times: [u128; 256] = [0; 256];
 	let mut res = Vec::new();
 
-	for position in range(0, 20) {
+	for position in 0..20 {
 		//TODO: go back a step if the elapsed time doesn't grow enough
-		for byte in range_inclusive(0u8, 255) {
+		for byte in 0u8..=255 {
 			let mut sig = CryptoData::from_vec(&res).to_hex();
 			let hex = CryptoData::from_byte(byte).to_hex();
-			sig.push_str(hex.as_slice());
+			sig.push_str(&hex);
 			let postfix = CryptoData::zero(19 - position).to_hex();
-			sig.push_str(postfix.as_slice());
+			sig.push_str(&postfix);
 			let my_url = format!("{}?file={}&signature={}", url, file, sig);
 
-			let start_time = precise_time_ns();
-			for _ in range(0u, 10) {
-				process_request(my_url.as_slice());
+			let start_time = Instant::now();
+			for _ in 0..10 {
+				process_request(&my_url);
 			}
-			let end_time = precise_time_ns();
-			let duration = end_time - start_time;
-			//println!("{} duration: {}", hex.as_slice(), duration);
-			times[byte as uint] = duration;
+			//let end_time = precise_time_ns();
+			let duration = start_time.elapsed().as_nanos();
+			//println!("{} duration: {}", &hex, duration);
+			times[byte as usize] = duration;
 		}
-		let mut max = 0u64;
+		let mut max = 0;
 		let mut best = 0;
 		//let best = times.iter().max_by(|x| *x)
-		for i in range_inclusive(0,255) {
+		for i in 0..=255 {
 			if times[i] > max {
 				max = times[i];
 				best = i;
