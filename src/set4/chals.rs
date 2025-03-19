@@ -1,12 +1,13 @@
 //# ! [allow(unknown_features)]
 
-use http::client::RequestWriter;
-use http::method::Get;
-use url::Url;
+//use http::client::RequestWriter;
+//use http::method::Get;
+//use url::Url;
 
 //use time::{precise_time_ns};
 use std::fs::read_to_string;
-use std::time::{Duration, Instant};
+use std::time::Instant;
+use ureq::Error;
 
 use utils::cryptodata::{CryptoData};
 use utils::utils::{decrypt_and_find_CTR,flip_bits,wrap_and_encrypt_CBC,wrap_and_encrypt_CTR};
@@ -161,6 +162,7 @@ pub fn chal30() {
 
 //TODO: terminate on code 200
 fn process_request(url: &str) {
+	/*
     let url = Url::parse(url).ok().expect("Invalid URL :-(");
     let request: RequestWriter = RequestWriter::new(Get, url).unwrap();
 
@@ -168,6 +170,13 @@ fn process_request(url: &str) {
         Ok(response) => response,
         Err(_request) => panic!("This example can progress no further with no response :-("),
     };
+	*/
+
+	let response = match ureq::get(url).call() {
+		Ok(response) => response,
+		Err(Error::StatusCode(code)) => panic!("Unexpected status code: {}", code),
+		Err(_) => panic!("Failure"),
+	};
 }
 
 fn guess_hmac(url: &str, file: &str) -> String {
