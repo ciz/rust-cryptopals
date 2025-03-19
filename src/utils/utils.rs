@@ -36,23 +36,22 @@ fn eng_char_freq(c: char) -> f32 {
 		'.' => 0.2,
 		'"' => 0.05,
 		' ' => 10.0,
-		'\x00'...'\x19' =>  -10.0,
+		'\x00'..='\x19' =>  -10.0,
 		_ =>  -1.0,
 	}
 }
 
 fn score_bytes(data: &CryptoData) -> f32 {
 	let it = data.vec().iter();
-	it.fold(0.0, |x, y| x + eng_char_freq(UnicodeChar::to_uppercase(*y as char)))
+	it.fold(0.0, |x, y| x + eng_char_freq((*y as char).to_ascii_uppercase()))
 }
 
 pub fn guess_xor_byte(xored: &CryptoData) -> (CryptoData, CryptoData, f32) {
-	use std::iter::{range_inclusive};
 	let mut best = CryptoData::new();
 	let mut best_score: f32 = 0.0;
 	let mut best_byte = CryptoData::new();
 
-	for b in range_inclusive(0u8, 255) {
+	for b in 0..=255 {
 		let byte = CryptoData::from_byte(b);
 		let res = xored.xor(&byte);
 		let score = score_bytes(&res);
@@ -67,12 +66,12 @@ pub fn guess_xor_byte(xored: &CryptoData) -> (CryptoData, CryptoData, f32) {
 	(best_byte, best, best_score)
 }
 
-pub fn guess_xor_key(enc: &CryptoData, keysize: uint) -> CryptoData {
+pub fn guess_xor_key(enc: &CryptoData, keysize: usize) -> CryptoData {
 	let mut key = CryptoData::new();
 	// transpose into blocks
-	for position in range(0, keysize) {
+	for position in 0..keysize {
 		let mut bytes = Vec::new();
-		for block in range(0, enc.len() / keysize) {
+		for block in 0..(enc.len() / keysize) {
 			bytes.push(enc.vec()[block * keysize + position]);
 		}
 		let (ch, _, _) = guess_xor_byte(&CryptoData::from_vec(&bytes));
@@ -85,13 +84,13 @@ pub fn guess_xor_key(enc: &CryptoData, keysize: uint) -> CryptoData {
 fn wrap_and(input: &str) -> CryptoData {
 	let prefix = "comment1=cooking%20MCs;userdata=";
 	let postfix = ";comment2=%20like%20a%20pound%20of%20bacon";
-	let mut s = String::from_str(prefix);
+	let mut s = String::from(prefix);
 
-	let escaped = String::from_str(input).replace(";", "%3B").replace("=", "%3D");
-	s.push_str(escaped.as_slice());
+	let escaped = String::from(input).replace(";", "%3B").replace("=", "%3D");
+	s.push_str(&escaped);
 	s.push_str(postfix);
 
-	CryptoData::from_text(s.as_slice())
+	CryptoData::from_text(&s)
 }
 
 pub fn wrap_and_encrypt_CBC(input: &str, key: &CryptoData, iv: &CryptoData) -> CryptoData {
@@ -106,7 +105,7 @@ fn and_find(decrypted: &CryptoData) -> bool {
 	let s = decrypted.to_text();
 	println!("decrypted: {}", s);
 	println!("decrypted: {}", decrypted.to_hex());
-	match s.find_str(";admin=true;") {
+	match s.find(";admin=true;") {
 		Some(_) => true,
 		_ => false
 	}
@@ -123,7 +122,7 @@ pub fn decrypt_and_find_CTR(input: &CryptoData, key: &CryptoData, nonce: &Crypto
 }
 
 //TODO: more general solution
-pub fn flip_bits(input: &CryptoData, positions: &Vec<uint>) -> CryptoData {
+pub fn flip_bits(input: &CryptoData, positions: &Vec<usize>) -> CryptoData {
 	let mut vec = input.vec().clone();
 	for idx in positions.iter() {
 		vec[*idx] = vec[*idx] ^ 1;
