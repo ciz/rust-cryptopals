@@ -30,15 +30,13 @@ fn main() {
 	chal3();
 	chal4();
 	chal5();
-//	chal6();
-
-//	chal7();
-
+	chal6();
+	chal7();
 	chal8();
 
 	// set 2
 	chal9();
-//	chal10();
+	chal10();
 //	chal11();
 //	chal12();
 
@@ -47,7 +45,7 @@ fn main() {
 
 	chal15();
 //	chal16();
-
+/*
 	// set 3
 //	chal17();
 //	chal18();
@@ -62,7 +60,7 @@ fn main() {
 	chal28();
 //	chal31();
 //	chal32();
-
+*/
 	// set 5
 //	chal33();
 }

@@ -53,8 +53,6 @@ pub fn chal4() {
 	let mut best_score: f32 = 0.0;
 
 	let fname = "src/set1/4.txt";
-	//let path = Path::new(fname);
-	//let mut file = BufferedReader::new(File::open(&path));
 
 	for line in read_to_string(fname).unwrap().lines() {
 		let xored = CryptoData::from_hex(line);
@@ -85,6 +83,7 @@ I go crazy when I hear a cymbal");
 
 // Break repeating-key XOR
 pub fn chal6() {
+	println!("Chal6");
 	let fname = "src/set1/6.txt";
 	let contents = read_to_string(fname);
 	let base64_str = match contents { Ok(x) => x, Err(e) => panic!("{}", e) };
