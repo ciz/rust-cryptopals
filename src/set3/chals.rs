@@ -1,12 +1,11 @@
 use utils::utils::{guess_xor_key};
 use utils::cryptodata::{CryptoData};
 use utils::mersenne::{MersenneTwister};
-use std::iter::{range_inclusive};
+
+use rand::Rng;
+use std::fs::read_to_string;
 
 fn select_and_encrypt() -> (CryptoData, CryptoData, CryptoData) {
-	use std::rand;
-	use std::rand::Rng;
-
 	let texts = [
 		"MDAwMDAwTm93IHRoYXQgdGhlIHBhcnR5IGlzIGp1bXBpbmc=",
 		"MDAwMDAxV2l0aCB0aGUgYmFzcyBraWNrZWQgaW4gYW5kIHRoZSBWZWdhJ3MgYXJlIHB1bXBpbic=",
@@ -22,9 +21,9 @@ fn select_and_encrypt() -> (CryptoData, CryptoData, CryptoData) {
 
 	let key = CryptoData::random(16);
 	let iv = CryptoData::random(16);
-	let mut rng = rand::task_rng();
 
-	let text_num = rng.gen_range(0u, 10);
+	let mut rng = rand::rng();
+	let text_num = rng.random_range(0..10);
 	let text = CryptoData::from_base64(texts[text_num]);
 	(text.CBC_encrypt(&key, &iv), key, iv)
 }
@@ -35,21 +34,21 @@ fn check_padding(enc: &CryptoData, key: &CryptoData, iv: &CryptoData) -> bool {
 }
 
 // decrypt a single block using the padding oracle
-fn guess_block(c1: &CryptoData, c2: &CryptoData, key: &CryptoData, iv: &CryptoData, bsize: uint) -> CryptoData {
-	let mut p2_bytes = Vec::from_elem(16, 0u8);
+fn guess_block(c1: &CryptoData, c2: &CryptoData, key: &CryptoData, iv: &CryptoData, bsize: usize) -> CryptoData {
+	let mut p2_bytes = vec![0u8; 16];
 
-	for i in range(0, bsize) {
-		let mut end_bytes_vec = Vec::from_elem(16, 0u8);
+	for i in 0..bsize {
+		let mut end_bytes_vec = vec![0u8; 16];
 		let mut p2_mod = 0u8;
 
 		// prepare end bytes for c_my vector
-		for j in range(0, i) {
+		for j in 0..i {
 			let xored = (i as u8 + 1) ^ p2_bytes[15 - j] ^ c1.vec()[15 - j];
 			end_bytes_vec[15 - j] = xored;
 		}
 
 		// find byte that decrypts to chosen padding byte
-		for byte in range_inclusive(0u8, 255) {
+		for byte in 0u8..=255 {
 			end_bytes_vec[15 - i] = byte;
 			let c_my = CryptoData::from_vec(&end_bytes_vec);
 			let for_oracle = c_my.cat(c2);
@@ -67,9 +66,9 @@ fn guess_block(c1: &CryptoData, c2: &CryptoData, key: &CryptoData, iv: &CryptoDa
 	CryptoData::from_vec(&p2_bytes)
 }
 
-fn guess_all_blocks(enc: &CryptoData, key: &CryptoData, iv: &CryptoData, bsize: uint) -> CryptoData {
+fn guess_all_blocks(enc: &CryptoData, key: &CryptoData, iv: &CryptoData, bsize: usize) -> CryptoData {
 	let mut res = CryptoData::new();
-	for idx in range(0, enc.len() / bsize) {
+	for idx in 0..(enc.len() / bsize) {
 		let c1 = match idx {
 			0 => iv.clone(),
 			_ => enc.block(idx - 1, 16),
@@ -112,16 +111,12 @@ pub fn chal19() {
 
 // Break fixed-nonce CTR statistically
 pub fn chal20() {
-	use std::io::BufferedReader;
-	use std::io::File;
-
 	let fname = "src/set3/20.txt";
-	let path = Path::new(fname);
-	let mut file = BufferedReader::new(File::open(&path));
+	let lines: Vec<CryptoData> = read_to_string(fname).unwrap().lines()
+	    							.map(|x| CryptoData::from_base64(x)).collect();
 
-	let lines: Vec<CryptoData> = file.lines().map(|x| CryptoData::from_base64(x.unwrap().as_slice())).collect();
 	// use the length of the shortest line as keysize
-	let keysize = lines.iter().min_by(|x| x.len()).unwrap().len();
+	let keysize = lines.iter().min_by_key(|x| x.len()).unwrap().len();
 	let truncated: Vec<CryptoData> = lines.iter().map(|x| x.cut(keysize)).collect();
 
 	let key = guess_xor_key(&truncated.iter().fold(CryptoData::new(), |a, b| a.cat(b)), keysize);
@@ -135,7 +130,7 @@ pub fn chal20() {
 pub fn chal21() {
 	let mut mt = MersenneTwister::new();
 	mt.init(123);
-	for _ in range(0u, 20) {
+	for _ in 0u32..20 {
 		println!("{}", mt.extract_number());
 	}
 }
