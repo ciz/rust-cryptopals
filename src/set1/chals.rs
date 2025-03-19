@@ -4,6 +4,9 @@ use utils::utils::{guess_xor_byte, guess_xor_key};
 use utils::cryptodata::{CryptoData};
 use std::fs::read_to_string;
 
+use std::collections::HashSet;
+use std::collections::HashMap;
+
 // Convert hex to base64
 pub fn chal1() {
 	// string: "I'm killing your brain like a poisonous mushroom"
@@ -130,9 +133,6 @@ pub fn chal7() {
 
 // Detect AES in ECB mode
 pub fn chal8() {
-	use std::collections::HashSet;
-	use std::collections::HashMap;
-
 	let fname = "src/set1/8.txt";
 	let mut dup_blocks: HashMap<String, usize> = HashMap::new();
 
@@ -148,7 +148,7 @@ pub fn chal8() {
 				dups += 1;
 			} else {
 				//println!("block: {}", block);
-				block_set.insert(block.clone());
+				block_set.insert(block);
 			}
 		}
 

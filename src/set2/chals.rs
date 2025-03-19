@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::fs::read_to_string;
 
 use rand::Rng;
+use std::collections::HashSet;
 
 // Implement PKCS#7 padding
 pub fn chal9() {
@@ -54,8 +55,6 @@ fn encryption_oracle(input: CryptoData) -> CryptoData {
 }
 
 fn encrypted_with_ECB(ciphertext: CryptoData, bsize: usize) -> bool {
-	use std::collections::HashSet;
-
 	let mut block_set = HashSet::new();
 	let ciph_vec = ciphertext.vec();
 	let mut dups = 0;
