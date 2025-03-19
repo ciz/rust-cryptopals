@@ -1,18 +1,13 @@
 use rand::Rng;
-//use self::rand::thread_rng;
 use byteorder::{LittleEndian, WriteBytesExt};
 
 use std::char;
 use std::fmt;
 use std::vec;
 
-//use hex;
-
 use openssl::symm;
 use openssl::symm::{encrypt, Crypter, Mode, Cipher};
 
-//use base64::prelude::*;
-//use base64::{engine::general_purpose, Engine as _};
 use base64::Engine;
 
 #[derive (Hash,PartialEq,Eq)]
@@ -32,12 +27,6 @@ impl CryptoData {
 	}
 
 	pub fn random(size: usize) -> CryptoData {
-		//use std::rand;
-		//use rand::Rng;
-//		use rand::prelude::*;
-		//let mut rng = rand::rng();
-		//let mut rng = rand::task_rng();
-
 		let mut rng = rand::rng();
 		//let n: u32 = rng.gen_range(0..100);
 	
@@ -87,37 +76,23 @@ impl CryptoData {
 	}
 
 	pub fn from_base64(base64_str: &str) -> CryptoData {
-		//TODO: handle errors
-		//let byte_str = BASE64_STANDARD.decode(base64_str);
-		//let byte_str = general_purpose::STANDARD.decode(base64_str);
-		//println!("base64 str: {}", base64_str);
-		
+		// TODO: handle errors
 		let byte_str = base64::prelude::BASE64_STANDARD
 					.decode(base64_str)
 					.expect("Failed to decode base64 data.");
 
-		// TODO: warning: use of deprecated function `base64::decode`: Use Engine::decode
-		//let byte_str = base64::decode(base64_str).expect("invalid byte");
-		//= base64_str.from_base64().unwrap();
 		CryptoData { data: byte_str.clone() }
 	}
 
 	pub fn to_base64(&self) -> String {
-		//BASE64_STANDARD.encode(self.data);
-//		general_purpose::STANDARD.encode(&self.data)
-
 		base64::prelude::BASE64_STANDARD.encode(&self.data)
-		//base64::encode(&self.data)
-		//self.data.as_slice().to_base64(STANDARD)
 	}
 
 	pub fn to_hex(&self) -> String {
 		hex::encode(&self.data)
-		//&self.data.to_hex()
 	}
 
 	pub fn to_text(&self) -> String {
-		//let char_vec: Vec<char> = self.data.iter().map(|&x| x as char).collect();
 		String::from_utf8(self.data.clone()).unwrap()
 	}
 
@@ -151,6 +126,7 @@ impl CryptoData {
 		let mut res: Vec<u8> = Vec::new();
 		let mut data_it = self.data.iter();
 
+		// TODO: wtf goto?
 		'outer: loop {
 			for k in key.vec().iter() {
 				let d =
@@ -354,8 +330,6 @@ impl CryptoData {
 			result = result.cat(&xored);
 
 			le_ctr += 1;
-			//w.write_le_u64(le_ctr);
-			//w.write_le_u64(counter);
 			le.write_u64::<LittleEndian>(le_ctr).unwrap();
 			le.write_u64::<LittleEndian>(counter).unwrap();
 			let new_ctr = CryptoData::from_vec(&le);
