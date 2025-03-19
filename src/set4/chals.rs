@@ -172,7 +172,7 @@ fn process_request(url: &str) {
     };
 	*/
 
-	let response = match ureq::get(url).call() {
+	match ureq::get(url).call() {
 		Ok(response) => response,
 		Err(Error::StatusCode(code)) => panic!("Unexpected status code: {}", code),
 		Err(_) => panic!("Failure"),

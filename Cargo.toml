@@ -10,6 +10,7 @@ byteorder = "1.5.0"
 hex = "0.4.3"
 openssl = "0.10.71"
 rand = "0.9.0"
+ureq = "3.0.10"
 
 [dependencies.rust-crypto]
 git = "https://github.com/DaGenix/rust-crypto"
