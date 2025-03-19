@@ -4,8 +4,12 @@ name = "cryptopals"
 version = "0.0.1"
 authors = ["Vítězslav Čížek <civ@blema.cz>"]
 
-[dependencies.openssl]
-git = "https://github.com/sfackler/rust-openssl"
+[dependencies]
+base64 = "0.22.1"
+byteorder = "1.5.0"
+hex = "0.4.3"
+openssl = "0.10.71"
+rand = "0.9.0"
 
 [dependencies.rust-crypto]
 git = "https://github.com/DaGenix/rust-crypto"
