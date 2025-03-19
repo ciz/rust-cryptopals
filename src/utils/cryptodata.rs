@@ -77,8 +77,14 @@ impl CryptoData {
 
 	pub fn from_base64(base64_str: &str) -> CryptoData {
 		// TODO: handle errors
+		// base64 can't handle newlines
+		let nowhitespace = String::from_utf8(base64_str.bytes()
+							.filter(|b| !b" \n\t\r\x0b\x0c"
+							.contains(b)).collect())
+							.unwrap();
+	
 		let byte_str = base64::prelude::BASE64_STANDARD
-					.decode(base64_str)
+					.decode(nowhitespace)
 					.expect("Failed to decode base64 data.");
 
 		CryptoData { data: byte_str.clone() }
