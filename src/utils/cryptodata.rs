@@ -1,27 +1,27 @@
-extern crate serialize;
-extern crate collections;
-extern crate openssl;
-extern crate "rust-crypto" as rust_crypto;
+use rand::Rng;
+//use self::rand::thread_rng;
+use byteorder::{LittleEndian, WriteBytesExt};
 
 use std::char;
 use std::fmt;
 use std::vec;
-use std::iter::{range_step};
 
-// have to use "self", otherwise it's an "unresolved import"
-use self::collections::vec::Vec;
-use self::serialize::base64::{ToBase64,FromBase64,STANDARD};
-use self::serialize::hex::{FromHex,ToHex};
-use self::openssl::crypto::symm;
+//use hex;
 
-#[deriving (Hash,PartialEq,Eq)]
+use openssl::symm;
+use openssl::symm::{encrypt, Crypter, Mode, Cipher};
+
+//use base64::prelude::*;
+//use base64::{engine::general_purpose, Engine as _};
+
+#[derive (Hash,PartialEq,Eq)]
 pub struct CryptoData {
 	data: Vec<u8>,
 }
 
-impl fmt::Show for CryptoData {
+impl fmt::Display for CryptoData {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "{}", self.data.to_hex())
+		write!(f, "{}", self.to_hex())
 	}
 }
 
@@ -30,27 +30,33 @@ impl CryptoData {
 		CryptoData { data: Vec::new() }
 	}
 
-	pub fn random(size: uint) -> CryptoData {
-		use std::rand;
-		use std::rand::Rng;
-		let mut rng = rand::task_rng();
+	pub fn random(size: usize) -> CryptoData {
+		//use std::rand;
+		//use rand::Rng;
+//		use rand::prelude::*;
+		//let mut rng = rand::rng();
+		//let mut rng = rand::task_rng();
 
+		let mut rng = rand::thread_rng();
+		//let n: u32 = rng.gen_range(0..100);
+	
 		//TODO: seems to be impossible to use array and fill_bytes,
 		// because the size isn't known at compile time
 		let mut bytes = Vec::new();
-		for _ in range(0u, size) {
-			bytes.push(rng.gen::<u8>());
+		for _ in 0..size {
+			let x: u8 = rng.gen();
+			bytes.push(x);
 		}
 
 		CryptoData::from_vec(&bytes)
 	}
 
-	pub fn zero(size: uint) -> CryptoData {
-		let zeros = Vec::from_elem(size, 0u8);
+	pub fn zero(size: usize) -> CryptoData {
+		let zeros: Vec<u8> = vec![0; size];
 		CryptoData { data: zeros }
 	}
 
-	pub fn cut(&self, count: uint) -> CryptoData {
+	pub fn cut(&self, count: usize) -> CryptoData {
 		//assert!(count > 0);
 		self.slice(0, count)
 	}
@@ -60,12 +66,14 @@ impl CryptoData {
 	}
 
 	pub fn from_hex(hexstring: &str) -> CryptoData {
-		CryptoData { data: hexstring.from_hex().unwrap() }
+		let vec = hex::decode(hexstring).unwrap();
+		CryptoData { data: vec }
+//		CryptoData { data: hexstring.from_hex().unwrap() }
 	}
 
 	pub fn from_text(ascii: &str) -> CryptoData {
-		let bytes = vec::as_vec(ascii.as_bytes());
-		CryptoData { data: bytes.deref().clone() }
+		let bytes: Vec<u8> = ascii.as_bytes().into_iter().map(|b| *b).collect();
+		CryptoData { data: bytes }
 	}
 
 	pub fn from_vec(vec: &Vec<u8>) -> CryptoData {
@@ -79,45 +87,53 @@ impl CryptoData {
 
 	pub fn from_base64(base64_str: &str) -> CryptoData {
 		//TODO: handle errors
-		let byte_str = base64_str.from_base64().unwrap();
+		//let byte_str = BASE64_STANDARD.decode(base64_str);
+		//let byte_str = general_purpose::STANDARD.decode(base64_str);
+		//println!("base64 str: {}", base64_str);
+		let byte_str = base64::decode(base64_str).expect("invalid byte");
+		//= base64_str.from_base64().unwrap();
 		CryptoData { data: byte_str.clone() }
 	}
 
 	pub fn to_base64(&self) -> String {
-		self.data.as_slice().to_base64(STANDARD)
+		//BASE64_STANDARD.encode(self.data);
+//		general_purpose::STANDARD.encode(&self.data)
+		base64::encode(&self.data)
+		//self.data.as_slice().to_base64(STANDARD)
 	}
 
 	pub fn to_hex(&self) -> String {
-		self.data.as_slice().to_hex()
+		hex::encode(&self.data)
+		//&self.data.to_hex()
 	}
 
 	pub fn to_text(&self) -> String {
-		let char_vec: Vec<char> = self.data.iter().map(|&x| x as char).collect();
-		String::from_chars(char_vec.as_slice())
+		//let char_vec: Vec<char> = self.data.iter().map(|&x| x as char).collect();
+		String::from_utf8(self.data.clone()).unwrap()
 	}
 
 	pub fn vec(&self) -> &Vec<u8> {
 		&self.data
 	}
 
-	pub fn block(&self, idx: uint, bsize: uint) -> CryptoData {
+	pub fn block(&self, idx: usize, bsize: usize) -> CryptoData {
 		self.slice(idx * bsize, (idx + 1) * bsize)
 	}
 
-	pub fn slice(&self, start: uint, end: uint) -> CryptoData {
+	pub fn slice(&self, start: usize, end: usize) -> CryptoData {
 		assert!(start <= end);
 		assert!(end <= self.data.len());
-		CryptoData { data: self.data.as_slice().slice(start, end).to_vec() }
+		CryptoData { data: self.data[start..end].to_vec() }
 	}
 
-	pub fn len(&self) -> uint {
+	pub fn len(&self) -> usize {
 		self.data.len()
 	}
 
 	pub fn cat(&self, other: &CryptoData) -> CryptoData {
-		let mut res = Vec::new();
-		res.push_all(self.data.as_slice());
-		res.push_all(other.vec().as_slice());
+		let mut res = self.data.clone();
+		//res.push(&self.data);
+		res.append(&mut other.vec().clone());
 
 		CryptoData { data: res }
 	}
@@ -142,21 +158,21 @@ impl CryptoData {
 		CryptoData { data: res, }
 	}
 
-	pub fn pad(&self, bsize: uint) -> CryptoData {
+	pub fn pad(&self, bsize: usize) -> CryptoData {
 		let mut res = self.data.clone();
 		let pad_size = bsize - res.len() % bsize;
 		//println!("len: {}, pad: {}", res.len(), pad_size);
 		let pad_byte = char::from_u32(pad_size as u32).unwrap();
-		for _ in range(0, pad_size) {
+		for _ in 0..pad_size {
 			res.push(pad_byte as u8);
 		}
 		CryptoData { data: res }
 	}
 
-	pub fn pad_verify(&self, bsize: uint) -> bool {
+	pub fn pad_verify(&self, bsize: usize) -> bool {
 		let len = self.data.len();
 		let pad_byte = *self.data.last().unwrap();
-		let pad_size = pad_byte as uint;
+		let pad_size = pad_byte as usize;
 
 		// is it padded to bsize?
 		if len % bsize != 0 {
@@ -170,7 +186,7 @@ impl CryptoData {
 		}
 
 		// check that all padding bytes are the same
-		for i in range(0, pad_size) {
+		for i in 0..pad_size {
 			if self.data[len - i - 1] != pad_byte {
 				return false;
 			}
@@ -178,10 +194,10 @@ impl CryptoData {
 		true
 	}
 
-	pub fn pad_strip(&self, bsize: uint) -> CryptoData {
+	pub fn pad_strip(&self, bsize: usize) -> CryptoData {
 		let len = self.data.len();
 		let pad_byte = *self.data.last().unwrap();
-		let pad_size = pad_byte as uint;
+		let pad_size = pad_byte as usize;
 
 		// is it padded to bsize?
 		if len % bsize != 0 {
@@ -190,37 +206,38 @@ impl CryptoData {
 
 		let mut ok = true;
 		// check that all padding bytes are the same
-		for i in range(1, pad_size) {
+		for i in 1..pad_size {
 			if self.data[len - i] != pad_byte {
 				ok = false;
 			}
 		}
 
 		if ok {
-			let new_slice = self.vec().as_slice().slice(0, len - 1);
+			let new_slice = &self.vec()[0..len - 1];
 			CryptoData::from_vec(&new_slice.to_vec())
 		} else {
 			self.clone()
 		}
 	}
 
-	pub fn encrypt(&self, key: &CryptoData, iv: &CryptoData, cipher: symm::Type) -> CryptoData {
-		println!("data: {}, key {}", self.data.to_hex(), key.to_hex());
-		let encrypted = symm::encrypt(	cipher,
+	pub fn encrypt(&self, key: &CryptoData, iv: &CryptoData, cipher: Cipher) -> CryptoData {
+		println!("data: {}, key {}", self.to_hex(), key.to_hex());
+		let encrypted = encrypt(	cipher,
 						key.vec().as_slice(),
-						iv.vec().clone(),
-						self.data.as_slice());
+						Some(&iv.vec()),
+						//Some(&iv.vec().clone()),
+						self.data.as_slice()).unwrap();
 
-		println!("res: {}", encrypted.to_hex());
+		//println!("res: {}", encrypted.to_hex());
 		CryptoData { data: encrypted }
 	}
 
-	pub fn decrypt(&self, key: &CryptoData, iv: &CryptoData, cipher: symm::Type) -> CryptoData {
+	pub fn decrypt(&self, key: &CryptoData, iv: &CryptoData, cipher: Cipher) -> CryptoData {
 		//println!("data: {}, key {}", self.to_hex(), key.to_hex());
-		let decrypted = symm::decrypt(	cipher,
-						key.vec().as_slice(),
-						iv.vec().clone(),
-						self.data.as_slice());
+		let decrypted = symm::decrypt(cipher,
+						key.vec(),
+						Some(iv.vec()),
+						&self.data).unwrap();
 
 		//println!("res: {}", decrypted.to_hex());
 		CryptoData { data: decrypted }
@@ -236,11 +253,12 @@ impl CryptoData {
 			self.clone()
 		};
 
-		let c = symm::Crypter::new(symm::AES_128_ECB);
-		c.init(symm::Encrypt, key.vec().as_slice(), Vec::new());
+		let mut c = Crypter::new(Cipher::aes_128_ecb(), Mode::Encrypt, &key.vec(), Some(&vec![])).unwrap();
 		c.pad(false);
-		let mut r = c.update(plain.vec().as_slice());
-		let rest = c.finalize();
+		let mut r: Vec<u8> = vec![]; 
+		let _ = c.update(plain.vec(), &mut r);
+		let mut rest: Vec<u8> = vec![]; 
+		let _ = c.finalize(&mut rest);
 		r.extend(rest.into_iter());
 		CryptoData { data: r }
 	}
@@ -250,12 +268,13 @@ impl CryptoData {
 		//https://github.com/sfackler/rust-openssl/issues/40
 		//self.decrypt(key, &CryptoData::new(), symm::AES_128_ECB)
 
-		let c = symm::Crypter::new(symm::AES_128_ECB);
-		c.init(symm::Decrypt, key.vec().as_slice(), Vec::new());
+		let mut c = symm::Crypter::new(Cipher::aes_128_ecb(), Mode::Decrypt, key.vec(), Some(&vec![])).unwrap();
 		// need to disable padding, otherwise there's an additional padding block at the end
 		c.pad(false);
-		let mut r = c.update(self.vec().as_slice());
-		let rest = c.finalize();
+		let mut r: Vec<u8> = vec![];
+		let _ = c.update(self.vec(), &mut r);
+		let mut rest: Vec<u8> = vec![]; 
+		let _ = c.finalize(&mut rest);
 		r.extend(rest.into_iter());
 		CryptoData { data: r }
 	}
@@ -268,8 +287,8 @@ impl CryptoData {
 		let plain = self.pad(16);
 		let plain_slice = plain.vec().as_slice();
 
-		for idx in range_step (0, plain.len(), 16) {
-			let block_slice = plain_slice.slice(idx, idx + 16);
+		for idx in (0..plain.len()).step_by(16) {
+			let block_slice = &plain_slice[idx..idx + 16];
 			let block = CryptoData::from_vec(&block_slice.to_vec());
 			let xored = block.xor(&to_xor);
 			let encrypted = xored.ECB_encrypt(key);
@@ -287,8 +306,8 @@ impl CryptoData {
 		let mut to_xor = iv.clone();
 		let self_slice = self.data.as_slice();
 
-		for idx in range_step (0, self.len(), 16) {
-			let block_slice = self_slice.slice(idx, idx + 16);
+		for idx in (0..self.len()).step_by(16) {
+			let block_slice = &self_slice[idx..idx + 16];
 			let block = CryptoData::from_vec(&block_slice.to_vec());
 			let decrypted = block.ECB_decrypt(key);
 			let xored = decrypted.xor(&to_xor);
@@ -303,34 +322,40 @@ impl CryptoData {
 	}
 
 	pub fn CTR_encrypt(&self, key: &CryptoData, nonce: &CryptoData, counter: u64) -> CryptoData {
-		use std::io::MemWriter;
+//		use std::io::MemWriter;
 		let mut result = CryptoData::new();
-		let mut w = MemWriter::new();
+//		let mut w = MemWriter::new();
 		//TODO: this used to work on older rustc
 		//let mut le_ctr = counter.to_le();
 		let mut le_ctr = counter;
 		//w.write_le_u64(le_ctr);
-		w.write_le_u64(counter);
-		let ctr_cd = CryptoData::from_vec(&w.clone().into_inner());
+//		w.write_le_u64(counter);
+
+		let mut le = vec![];
+		le.write_u64::<LittleEndian>(counter).unwrap();
+
+		let ctr_cd = CryptoData::from_vec(&le);
 		let mut nonce_ctr = nonce.cat(&ctr_cd);
 
-		for idx in range_step (0, self.data.len(), 16) {
+		for idx in (0..self.data.len()).step_by(16) {
 			let end = if idx + 16 < self.data.len() {
 				idx + 16
 			} else {
 				self.data.len()
 			};
 
-			let block_slice = self.data.slice(idx, end);
+			let block_slice = &self.data[idx..end];
 			let block = CryptoData::from_vec(&block_slice.to_vec());
 			let encrypted = nonce_ctr.ECB_encrypt(key);
 			let xored = block.xor(&encrypted.cut(block.len()));
 			result = result.cat(&xored);
 
 			le_ctr += 1;
-			w.write_le_u64(le_ctr);
-			w.write_le_u64(counter);
-			let new_ctr = CryptoData::from_vec(&w.clone().into_inner());
+			//w.write_le_u64(le_ctr);
+			//w.write_le_u64(counter);
+			le.write_u64::<LittleEndian>(le_ctr).unwrap();
+			le.write_u64::<LittleEndian>(counter).unwrap();
+			let new_ctr = CryptoData::from_vec(&le);
 			nonce_ctr = nonce.cat(&new_ctr);
 		}
 		result
@@ -342,11 +367,11 @@ impl CryptoData {
 	}
 
 	// count Hamming distance to a data string
-	pub fn hamming_distance(&self, other: &CryptoData) -> uint {
-		let mut total_dist = 0u;
+	pub fn hamming_distance(&self, other: &CryptoData) -> usize {
+		let mut total_dist = 0;
 		for (xc, yc) in self.data.iter().zip(other.vec().iter()) {
 			let mut val = *xc ^ *yc;
-			let mut dist = 0u;
+			let mut dist = 0;
 
 			// Count the number of bits set
 			while val != 0 {
@@ -361,8 +386,8 @@ impl CryptoData {
 		total_dist
 	}
 	// count Hamming distance between characters
-	pub fn char_hamming_distance(&self, other: &CryptoData) -> uint {
-		let mut dist = 0u;
+	pub fn char_hamming_distance(&self, other: &CryptoData) -> usize {
+		let mut dist = 0;
 		assert!(self.data.len() == other.len());
 		for (xc, yc) in self.data.iter().zip(other.vec().iter()) {
 			if *xc != *yc {
@@ -373,14 +398,22 @@ impl CryptoData {
 	}
 
 	pub fn SHA1_mac_prefix(&self, key: &CryptoData) -> CryptoData {
-		use self::rust_crypto::digest::Digest;
-		use self::rust_crypto::sha1::Sha1;
-		let mut digest: [u8, ..20] = [0, ..20];
-		let to_mac = key.cat(self);
-
+		use crypto::digest::Digest;
+		use crypto::sha1::Sha1;
+		let mut digest: [u8; 20] = [0; 20];
+	
+		let binding = key.cat(self);
+		let to_mac = binding.vec();
+/*
+		use openssl::sha;
+		let mut hasher = sha::Sha1::new();
+		hasher.update(to_mac);
+		let mut digest = hasher.finish();
+*/
 		let mut sha = Sha1::new();
-		sha.input(to_mac.vec().as_slice());
+		sha.input(&to_mac);
 		sha.result(&mut digest);
+
 		CryptoData::from_vec(&digest.to_vec())
 	}
 }
